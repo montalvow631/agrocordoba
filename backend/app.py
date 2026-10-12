@@ -1109,6 +1109,29 @@ def _migrate_user_columns():
 with app.app_context():
     db.create_all()
     _migrate_user_columns()
+    admin_email = os.environ.get("ADMIN_EMAIL", "").strip().lower()
+    admin_password = os.environ.get("ADMIN_PASSWORD", "")
+    if bool(admin_email) != bool(admin_password):
+        raise RuntimeError("Configura ADMIN_EMAIL y ADMIN_PASSWORD juntos.")
+    if admin_email:
+        if len(admin_password) < 12:
+            raise RuntimeError("ADMIN_PASSWORD debe tener al menos 12 caracteres.")
+        configured_admin = User.query.filter_by(email=admin_email).first()
+        if configured_admin is None:
+            configured_admin = User(
+                google_sub=f"local:{uuid.uuid4()}",
+                email=admin_email,
+                name="Administración AgroCórdoba",
+                password_hash=generate_password_hash(admin_password),
+                role="admin",
+                status="activo",
+            )
+            db.session.add(configured_admin)
+            db.session.commit()
+        elif configured_admin.role != "admin":
+            raise RuntimeError(
+                "ADMIN_EMAIL pertenece a una cuenta que no es administradora."
+            )
 
 
 @app.cli.command("create-admin")
