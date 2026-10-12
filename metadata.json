@@ -1,0 +1,8 @@
+{
+  "name": "AgroCórdoba",
+  "description": "Plataforma B2B que conecta pequeños productores agrícolas de Córdoba, Colombia con compradores directos.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

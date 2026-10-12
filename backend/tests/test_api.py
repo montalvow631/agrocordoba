@@ -1,0 +1,362 @@
+from datetime import datetime, timezone
+
+from app import (
+    Favorite,
+    PasswordResetVerification,
+    ProductListing,
+    QuotationRecord,
+    ReadNotification,
+    SettingsVerification,
+    User,
+    _product_payload,
+    db,
+)
+
+
+def create_user(**overrides):
+    values = {
+        "google_sub": "google-user-123",
+        "email": "campesino@example.com",
+        "name": "María Pérez",
+        "avatar": "https://example.com/avatar.png",
+        "registered_at": datetime(2026, 1, 2, tzinfo=timezone.utc),
+    }
+    values.update(overrides)
+    user = User(**values)
+    db.session.add(user)
+    db.session.commit()
+    return user
+
+
+def test_health_reports_ok(client):
+    response = client.get("/api/health")
+
+    assert response.status_code == 200
+    assert response.get_json() == {"status": "ok"}
+
+
+def test_me_requires_a_session(client):
+    response = client.get("/api/auth/me")
+
+    assert response.status_code == 401
+    assert response.get_json() == {"error": "No hay una sesión iniciada."}
+
+
+def test_me_returns_public_user_data(client):
+    user = create_user()
+    with client.session_transaction() as session:
+        session["user_id"] = user.id
+
+    response = client.get("/api/auth/me")
+
+    assert response.status_code == 200
+    payload = response.get_json()["user"]
+    assert payload["id"] == user.id
+    assert payload["name"] == "María Pérez"
+    assert payload["email"] == "campesino@example.com"
+    assert payload["role"] == "cliente"
+    assert payload["city"] == "Montería"
+    assert payload["status"] == "activo"
+    assert "google_sub" not in payload
+
+
+def test_me_clears_a_session_for_a_missing_user(client):
+    with client.session_transaction() as session:
+        session["user_id"] = "missing-user-id"
+
+    response = client.get("/api/auth/me")
+
+    assert response.status_code == 401
+    with client.session_transaction() as session:
+        assert "user_id" not in session
+
+
+def test_logout_clears_the_session(client):
+    with client.session_transaction() as session:
+        session["user_id"] = "some-user-id"
+
+    response = client.post("/api/auth/logout")
+
+    assert response.status_code == 200
+    assert response.get_json() == {"ok": True}
+    with client.session_transaction() as session:
+        assert "user_id" not in session
+
+
+def test_user_email_and_google_subject_must_be_unique(client):
+    create_user()
+    duplicate_email = User(google_sub="another-sub", email="campesino@example.com", name="Otro")
+    db.session.add(duplicate_email)
+
+    try:
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+    else:
+        raise AssertionError("La base de datos aceptó un correo duplicado")
+
+    duplicate_subject = User(google_sub="google-user-123", email="otro@example.com", name="Otro")
+    db.session.add(duplicate_subject)
+
+    try:
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+    else:
+        raise AssertionError("La base de datos aceptó un identificador Google duplicado")
+
+
+def login_as(client, user):
+    with client.session_transaction() as session:
+        session["user_id"] = user.id
+
+
+def product_payload(**overrides):
+    values = {
+        "name": "Yuca",
+        "category": "Tubérculos y Raíces",
+        "priceCopKg": 2500,
+        "priceUsdKg": 0.6,
+        "stockAvailableKg": 1000,
+        "stockMinKg": 100,
+        "minOrderKg": 50,
+        "lat": 8.75,
+        "lng": -75.88,
+        "municipalityId": "monteria",
+        "municipalityName": "Montería",
+    }
+    values.update(overrides)
+    return values
+
+
+def test_product_validation_accepts_cordoba_negative_longitude():
+    valid, error = _product_payload(product_payload())
+
+    assert error is None
+    assert valid["lng"] == -75.88
+
+
+def test_active_producer_can_publish_product_with_negative_longitude(client):
+    producer = create_user(
+        google_sub="producer-sub",
+        email="producer@example.com",
+        role="productor",
+        status="activo",
+    )
+    login_as(client, producer)
+
+    response = client.post("/api/products", json=product_payload())
+
+    assert response.status_code == 201
+    assert response.get_json()["product"]["lng"] == -75.88
+
+
+def test_admin_can_list_quotes_and_edit_products(client):
+    producer = create_user(
+        google_sub="producer-for-admin",
+        email="producer-admin@example.com",
+        role="productor",
+        status="activo",
+    )
+    admin = create_user(
+        google_sub="admin-sub",
+        email="admin@example.com",
+        role="admin",
+    )
+    listing = ProductListing(producer_id=producer.id, data=product_payload())
+    quote = QuotationRecord(
+        client_id=create_user(google_sub="buyer-for-quote", email="buyer-quote@example.com").id,
+        producer_id=producer.id,
+        product_id="reference-product",
+        data={"productName": "Yuca", "clientName": "Comprador"},
+    )
+    db.session.add_all([listing, quote])
+    db.session.commit()
+    login_as(client, admin)
+
+    quotes_response = client.get("/api/quotations")
+    edit_response = client.put(
+        f"/api/products/{listing.id}",
+        json=product_payload(priceCopKg=2700),
+    )
+
+    assert quotes_response.status_code == 200
+    assert len(quotes_response.get_json()["quotations"]) == 1
+    assert edit_response.status_code == 200
+    assert edit_response.get_json()["product"]["priceCopKg"] == 2700
+
+
+def test_admin_product_create_requires_active_producer(client):
+    producer = create_user(
+        google_sub="active-producer-for-admin-create",
+        email="active-admin-product@example.com",
+        role="productor",
+        status="activo",
+    )
+    admin = create_user(google_sub="admin-create-sub", email="admin-create@example.com", role="admin")
+    login_as(client, admin)
+
+    response = client.post("/api/admin/products", json=product_payload(producerId=producer.id))
+
+    assert response.status_code == 201
+    assert response.get_json()["product"]["producerId"] == producer.id
+
+
+def test_favorites_are_saved_per_buyer(client):
+    first = create_user(google_sub="favorite-buyer-1", email="favorite-one@example.com")
+    second = create_user(google_sub="favorite-buyer-2", email="favorite-two@example.com")
+    login_as(client, first)
+
+    save_response = client.put("/api/favorites", json={"favoriteIds": ["prod-1", "prod-2"]})
+    assert save_response.status_code == 200
+    assert set(save_response.get_json()["favoriteIds"]) == {"prod-1", "prod-2"}
+    assert set(client.get("/api/favorites").get_json()["favoriteIds"]) == {"prod-1", "prod-2"}
+
+    login_as(client, second)
+    list_response = client.get("/api/favorites")
+    assert list_response.status_code == 200
+    assert list_response.get_json()["favoriteIds"] == []
+
+
+def test_read_notifications_only_include_buyers_own_quotes(client):
+    first = create_user(google_sub="notify-buyer-1", email="notify-one@example.com")
+    second = create_user(google_sub="notify-buyer-2", email="notify-two@example.com")
+    producer = create_user(google_sub="notify-producer", email="notify-producer@example.com", role="productor")
+    quote = QuotationRecord(
+        client_id=first.id,
+        producer_id=producer.id,
+        product_id="prod-1",
+        data={"productName": "Yuca"},
+    )
+    db.session.add(quote)
+    db.session.commit()
+    login_as(client, second)
+
+    response = client.put("/api/notifications/read", json={"quotationIds": [quote.id]})
+
+    assert response.status_code == 200
+    assert response.get_json()["quotationIds"] == []
+    assert ReadNotification.query.count() == 0
+
+
+def test_profile_photo_is_persisted_and_rejects_invalid_data(client):
+    user = create_user(google_sub="profile-user", email="profile@example.com")
+    login_as(client, user)
+
+    response = client.patch(
+        "/api/account/profile",
+        json={"avatar": "data:image/png;base64,aGVsbG8=", "city": "Lorica"},
+    )
+
+    assert response.status_code == 200
+    assert response.get_json()["user"]["city"] == "Lorica"
+    assert db.session.get(User, user.id).avatar == "data:image/png;base64,aGVsbG8="
+    invalid = client.patch("/api/account/profile", json={"avatar": "javascript:alert(1)"})
+    assert invalid.status_code == 400
+
+
+def test_account_settings_requests_a_code_through_mail_sender(client, monkeypatch):
+    user = create_user(google_sub="settings-user", email="settings@example.com")
+    login_as(client, user)
+    sent = []
+    monkeypatch.setattr("app._send_settings_code", lambda account, code: sent.append((account.id, code)))
+
+    response = client.post("/api/account/settings/request-code", json={"name": "Nuevo Nombre"})
+
+    assert response.status_code == 200
+    assert sent and sent[0][0] == user.id
+    assert SettingsVerification.query.filter_by(user_id=user.id).first() is not None
+
+
+def test_password_recovery_verifies_code_and_changes_password(client, monkeypatch):
+    from werkzeug.security import check_password_hash, generate_password_hash
+
+    user = create_user(
+        google_sub="password-reset-user",
+        email="reset@example.com",
+        password_hash=generate_password_hash("old-password-123"),
+    )
+    sent = []
+    monkeypatch.setattr("app._send_password_reset_code", lambda account, code: sent.append(code))
+
+    request_response = client.post("/api/auth/password/request-code", json={"email": user.email})
+
+    assert request_response.status_code == 200
+    challenge = PasswordResetVerification.query.filter_by(user_id=user.id).first()
+    assert challenge is not None
+    assert challenge.code_hash != sent[0]
+    verify_response = client.post(
+        "/api/auth/password/verify-code",
+        json={"email": user.email, "code": sent[0], "password": "new-password-456"},
+    )
+    assert verify_response.status_code == 200
+    assert check_password_hash(db.session.get(User, user.id).password_hash, "new-password-456")
+
+
+def test_resend_email_sender_uses_https_api_when_configured(monkeypatch):
+    import app as backend
+
+    user = User(google_sub="resend-test-user", email="resend@example.com", name="Resend")
+    monkeypatch.setenv("RESEND_API_KEY", "test-key-only")
+    monkeypatch.setenv("RESEND_FROM", "AgroCórdoba <test@example.com>")
+    called = {}
+
+    class Response:
+        def raise_for_status(self):
+            return None
+
+    def fake_post(url, **kwargs):
+        called.update(url=url, **kwargs)
+        return Response()
+
+    monkeypatch.setattr(backend.requests, "post", fake_post)
+    backend._send_settings_code(user, "123456")
+
+    assert called["url"] == "https://api.resend.com/emails"
+    assert called["json"]["to"] == [user.email]
+    assert "123456" in called["json"]["text"]
+
+
+def test_google_login_explains_when_oauth_credentials_are_missing(client, monkeypatch):
+    monkeypatch.delenv("GOOGLE_CLIENT_ID", raising=False)
+    monkeypatch.delenv("GOOGLE_CLIENT_SECRET", raising=False)
+    monkeypatch.setenv("FRONTEND_URL", "http://localhost:3000/")
+
+    response = client.get("/auth/google")
+
+    assert response.status_code == 302
+    assert response.headers["Location"].startswith("http://localhost:3000/?google_login=setup")
+
+
+def test_admin_can_edit_and_delete_a_user_with_related_records(client):
+    admin = create_user(google_sub="admin-edit-sub", email="admin-edit@example.com", role="admin")
+    producer = create_user(
+        google_sub="producer-delete-sub",
+        email="producer-delete@example.com",
+        role="productor",
+        status="activo",
+    )
+    buyer = create_user(google_sub="buyer-delete-sub", email="buyer-delete@example.com")
+    listing = ProductListing(producer_id=producer.id, data=product_payload())
+    quote = QuotationRecord(
+        client_id=buyer.id,
+        producer_id=producer.id,
+        product_id="prod-to-delete",
+        data={"productName": "Yuca"},
+    )
+    db.session.add_all([listing, quote, Favorite(user_id=buyer.id, product_id="prod-to-delete")])
+    db.session.commit()
+    login_as(client, admin)
+
+    edited = client.patch(
+        f"/api/admin/users/{producer.id}",
+        json={"name": "Productor actualizado", "email": producer.email, "city": "Lorica", "status": "activo", "farmName": "Finca Nueva", "association": "Cooperativa"},
+    )
+    assert edited.status_code == 200
+    assert edited.get_json()["user"]["name"] == "Productor actualizado"
+
+    deleted = client.delete(f"/api/admin/users/{buyer.id}")
+    assert deleted.status_code == 200
+    assert db.session.get(User, buyer.id) is None
+    assert QuotationRecord.query.filter_by(client_id=buyer.id).count() == 0
+    assert Favorite.query.filter_by(user_id=buyer.id).count() == 0

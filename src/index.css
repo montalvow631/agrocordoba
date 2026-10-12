@@ -1,0 +1,115 @@
+@import 'leaflet/dist/leaflet.css';
+@import "tailwindcss";
+
+:root {
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  color-scheme: light;
+}
+
+html {
+  scroll-behavior: smooth;
+  scroll-padding-top: 5rem;
+}
+
+@layer base {
+  body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background-color: #f1efdf;
+    color: #20271f;
+    min-width: 320px;
+    margin: 0;
+  }
+
+  h1, h2, h3, h4, .font-display {
+    font-family: 'Space Grotesk', system-ui, -apple-system, sans-serif;
+  }
+
+  button,
+  a[href],
+  select,
+  label,
+  input[type='checkbox'],
+  input[type='radio'],
+  [role='button'] {
+    cursor: pointer;
+  }
+
+  button:disabled,
+  [aria-disabled='true'] {
+    cursor: not-allowed;
+  }
+}
+
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: 2px solid #14532d;
+  outline-offset: 3px;
+}
+
+/* Serif editorial titles for the content sections; the hero keeps its own font. */
+.font-editorial {
+  font-family: 'Cormorant Garamond', 'Playfair Display', Georgia, 'Times New Roman', serif;
+  font-optical-sizing: auto;
+}
+
+.hero-field-drift {
+  animation: agro-field-drift 4.2s ease-in-out forwards;
+  transform-origin: 52% 48%;
+}
+
+.agro-marquee-track {
+  animation: agro-marquee 24s linear infinite;
+}
+
+@keyframes agro-field-drift {
+  from { transform: scale(1); }
+  to { transform: scale(1.08) translate3d(-0.5%, -0.4%, 0); }
+}
+
+@keyframes agro-marquee {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hero-field-drift,
+  .agro-marquee-track {
+    animation: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* Custom scrollbars and transitions */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f1efdf;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #c0c9c1;
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #707972;
+}
