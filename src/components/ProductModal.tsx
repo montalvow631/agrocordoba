@@ -15,9 +15,11 @@ import {
 import { Product, UserProfile, BusinessType, QuotationRequest } from '../types';
 import { FREIGHT_RATES, USD_EXCHANGE_RATE } from '../data/mockData';
 import { formatCop, calculateVolumeDiscount, generateWhatsAppLink, formatShortProductName } from '../utils/formatters';
+import { getProductPath, getProductStructuredData } from '../utils/productSeo';
 
 interface ProductModalProps {
   product: Product | null;
+  isPage?: boolean;
   onClose: () => void;
   currentUser: UserProfile | null;
   onRequireLogin?: () => void;
@@ -26,6 +28,7 @@ interface ProductModalProps {
 
 export const ProductModal: React.FC<ProductModalProps> = ({
   product,
+  isPage = false,
   onClose,
   currentUser,
   onRequireLogin,
@@ -51,6 +54,58 @@ export const ProductModal: React.FC<ProductModalProps> = ({
 
   const [quotationSaved, setQuotationSaved] = useState<boolean>(false);
   const [quotationError, setQuotationError] = useState('');
+
+  useEffect(() => {
+    if (!isPage) return;
+
+    const previousTitle = document.title;
+    const descriptionMeta = document.querySelector<HTMLMetaElement>('meta[name="description"]');
+    const canonicalLink = document.querySelector<HTMLLinkElement>('link[rel="canonical"]');
+    const openGraphTitleMeta = document.querySelector<HTMLMetaElement>('meta[property="og:title"]');
+    const openGraphDescriptionMeta = document.querySelector<HTMLMetaElement>('meta[property="og:description"]');
+    const openGraphUrlMeta = document.querySelector<HTMLMetaElement>('meta[property="og:url"]');
+    const openGraphImageMeta = document.querySelector<HTMLMetaElement>('meta[property="og:image"]');
+    const previousDescription = descriptionMeta?.content;
+    const previousCanonical = canonicalLink?.href;
+    const previousOpenGraphTitle = openGraphTitleMeta?.content;
+    const previousOpenGraphDescription = openGraphDescriptionMeta?.content;
+    const previousOpenGraphUrl = openGraphUrlMeta?.content;
+    const previousOpenGraphImage = openGraphImageMeta?.content;
+
+    document.title = `${formatShortProductName(product.name)} en ${product.municipalityName} | AgroCórdoba`;
+    if (descriptionMeta) descriptionMeta.content = product.description;
+    if (canonicalLink) canonicalLink.href = `${window.location.origin}${getProductPath(product)}`;
+    if (openGraphTitleMeta) openGraphTitleMeta.content = document.title;
+    if (openGraphDescriptionMeta) openGraphDescriptionMeta.content = product.description;
+    if (openGraphUrlMeta) openGraphUrlMeta.content = `${window.location.origin}${getProductPath(product)}`;
+    if (openGraphImageMeta) {
+      openGraphImageMeta.content = product.image.startsWith('http')
+        ? product.image
+        : `${window.location.origin}${product.image.startsWith('/') ? '' : '/'}${product.image}`;
+    }
+
+    return () => {
+      document.title = previousTitle;
+      if (descriptionMeta && previousDescription !== undefined) {
+        descriptionMeta.content = previousDescription;
+      }
+      if (canonicalLink && previousCanonical !== undefined) {
+        canonicalLink.href = previousCanonical;
+      }
+      if (openGraphTitleMeta && previousOpenGraphTitle !== undefined) {
+        openGraphTitleMeta.content = previousOpenGraphTitle;
+      }
+      if (openGraphDescriptionMeta && previousOpenGraphDescription !== undefined) {
+        openGraphDescriptionMeta.content = previousOpenGraphDescription;
+      }
+      if (openGraphUrlMeta && previousOpenGraphUrl !== undefined) {
+        openGraphUrlMeta.content = previousOpenGraphUrl;
+      }
+      if (openGraphImageMeta && previousOpenGraphImage !== undefined) {
+        openGraphImageMeta.content = previousOpenGraphImage;
+      }
+    };
+  }, [isPage, product]);
 
   useEffect(() => {
     if (!currentUser) return;
@@ -141,10 +196,22 @@ export const ProductModal: React.FC<ProductModalProps> = ({
     destinationZone,
   ]);
 
+  const ProductHeading = isPage ? 'h1' : 'h3';
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/65 backdrop-blur-xs overflow-y-auto">
+    <>
+    {isPage && (
+      <script type="application/ld+json">
+        {JSON.stringify(getProductStructuredData(product)).replace(/</g, '\\u003c')}
+      </script>
+    )}
+    <div className={isPage
+      ? 'min-h-screen bg-[#f1efdf] px-3 py-6 sm:px-6 sm:py-10'
+      : 'fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/65 backdrop-blur-xs overflow-y-auto'}>
       <div 
-        className="relative w-full max-w-4xl bg-white rounded-3xl shadow-2xl border border-[#c0c9c1] overflow-hidden my-6 max-h-[92vh] flex flex-col"
+        className={isPage
+          ? 'relative mx-auto w-full max-w-6xl bg-white rounded-3xl shadow-xl border border-[#c0c9c1] overflow-hidden'
+          : 'relative w-full max-w-4xl bg-white rounded-3xl shadow-2xl border border-[#c0c9c1] overflow-hidden my-6 max-h-[92vh] flex flex-col'}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Top Header Bar */}
@@ -162,15 +229,17 @@ export const ProductModal: React.FC<ProductModalProps> = ({
           <button
             id="btn-close-modal"
             onClick={onClose}
-            className="p-1.5 rounded-full bg-white/10 hover:bg-white/20 text-white transition"
-            aria-label="Cerrar ventana"
+            className={isPage
+              ? 'rounded-xl bg-white/10 px-4 py-2 text-sm font-semibold text-white transition hover:bg-white/20'
+              : 'p-1.5 rounded-full bg-white/10 hover:bg-white/20 text-white transition'}
+            aria-label={isPage ? 'Volver a las cosechas' : 'Cerrar ventana'}
           >
-            <X className="w-5 h-5" />
+            {isPage ? 'Volver a las cosechas' : <X className="w-5 h-5" />}
           </button>
         </div>
 
         {/* Scrollable Content Body */}
-        <div className="overflow-y-auto flex-1 p-6 space-y-8">
+        <div className={isPage ? 'p-5 sm:p-8 space-y-8' : 'overflow-y-auto flex-1 p-6 space-y-8'}>
           {/* Section 1: Product Overview & Producer Profile */}
           <div className="grid grid-cols-1 md:grid-cols-12 gap-6 items-start">
             {/* Image & Origin Geo */}
@@ -234,9 +303,9 @@ export const ProductModal: React.FC<ProductModalProps> = ({
                 <span className="text-xs font-bold text-[#9b4500] uppercase tracking-wider">
                   Variedad: {product.variety}
                 </span>
-                <h3 className="font-display font-bold text-2xl text-[#151d19] mt-0.5">
+                <ProductHeading className="font-display font-bold text-2xl text-[#151d19] mt-0.5">
                   {formatShortProductName(product.name)}
-                </h3>
+                </ProductHeading>
                 <p className="mt-2 text-sm text-[#404943] leading-relaxed">
                   {product.description}
                 </p>
@@ -535,10 +604,11 @@ export const ProductModal: React.FC<ProductModalProps> = ({
             onClick={onClose}
             className="text-xs text-[#003622] font-bold hover:underline"
           >
-            Volver al Catálogo
+            {isPage ? 'Volver a las cosechas' : 'Volver al Catálogo'}
           </button>
         </div>
       </div>
     </div>
+    </>
   );
 };

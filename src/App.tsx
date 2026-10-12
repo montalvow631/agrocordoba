@@ -14,12 +14,23 @@ import { AuthModal } from './components/AuthModal';
 
 import { INITIAL_PRODUCTS, INITIAL_QUOTATIONS } from './data/mockData';
 import { Product, QuotationRequest, UserProfile } from './types';
+import { getProductPath } from './utils/productSeo';
 
 const LEGACY_DEMO_IMAGE_IDS: Record<string, string> = {
   'prod-1': 'photo-1571771894821-ce9b6c11b08e',
   'prod-2': 'photo-1590165482129-1b8b27698780',
   'prod-3': 'photo-1549007994-cb92caebd54b',
   'prod-4': 'photo-1596040033229-a9821ebd058d',
+};
+
+const getProductIdFromPath = (pathname: string): string | null => {
+  const match = pathname.match(/^\/producto\/[^/]+\/([^/]+)\/?$/);
+  if (!match) return null;
+  try {
+    return decodeURIComponent(match[1]);
+  } catch {
+    return null;
+  }
 };
 
 // Paneles pesados: se descargan solo cuando el usuario los necesita
@@ -105,6 +116,11 @@ export const App: React.FC = () => {
     }
     return INITIAL_PRODUCTS;
   });
+  const [selectedProductForModal, setSelectedProductForModal] =
+    useState<Product | null>(() => {
+      const productId = getProductIdFromPath(window.location.pathname);
+      return products.find((product) => product.id === productId) || null;
+    });
 
   // =====================================================
   // COTIZACIONES
@@ -146,13 +162,12 @@ export const App: React.FC = () => {
   // =====================================================
   // MODALES
   // =====================================================
-  const [selectedProductForModal, setSelectedProductForModal] =
-    useState<Product | null>(null);
   const [authModalOpen, setAuthModalOpen] = useState<boolean>(false);
   const [authInitialTab, setAuthInitialTab] =
     useState<'login' | 'register' | 'profile'>('login');
   const [authNotice, setAuthNotice] = useState('');
   const [isAdminView, setIsAdminView] = useState<boolean>(false);
+  const isProductPath = getProductIdFromPath(window.location.pathname) !== null;
 
   // =====================================================
   // GUARDAR EN LOCALSTORAGE
@@ -185,6 +200,20 @@ export const App: React.FC = () => {
       .catch((error) => console.error('No se pudieron cargar publicaciones del backend:', error));
     return () => { active = false; };
   }, []);
+
+  useEffect(() => {
+    const syncProductRoute = () => {
+      const productId = getProductIdFromPath(window.location.pathname);
+      setSelectedProductForModal(
+        productId
+          ? products.find((product) => product.id === productId) || null
+          : null
+      );
+    };
+    syncProductRoute();
+    window.addEventListener('popstate', syncProductRoute);
+    return () => window.removeEventListener('popstate', syncProductRoute);
+  }, [products]);
 
   useEffect(() => {
     if (!currentUser?.authProvider) {
@@ -430,7 +459,21 @@ export const App: React.FC = () => {
   // MODAL DEL PRODUCTO
   // =====================================================
   const handleOpenProductModal = (product: Product) => {
+    window.history.pushState(
+      { agroProductPage: true },
+      '',
+      getProductPath(product)
+    );
     setSelectedProductForModal(product);
+  };
+
+  const handleCloseProductPage = () => {
+    if (window.history.state?.agroProductPage) {
+      window.history.back();
+      return;
+    }
+    window.history.replaceState({}, '', '/');
+    setSelectedProductForModal(null);
   };
 
   // =====================================================
@@ -547,7 +590,7 @@ export const App: React.FC = () => {
   return (
     <div className="min-h-screen flex flex-col bg-[#f1efdf] text-[#212529] selection:bg-[#e8fe85] selection:text-[#07503f]">
       {/* NAVBAR PÚBLICO: no aparece para comprador ni productor */}
-      {!hasOwnPanel && (
+      {!isProductPath && !hasOwnPanel && (
         <Navbar
           currency={currency}
           onToggleCurrency={handleToggleCurrency}
@@ -567,7 +610,26 @@ export const App: React.FC = () => {
         />
       )}
 
-      {isAdminView ? (
+      {isProductPath ? (
+        selectedProductForModal ? (
+          <ProductModal
+            product={selectedProductForModal}
+            isPage
+            onClose={handleCloseProductPage}
+            currentUser={currentUser}
+            onRequireLogin={() => handleOpenAuth('login')}
+            onSubmitQuotation={handleSubmitQuotation}
+          />
+        ) : (
+          <main className="flex flex-1 items-center justify-center bg-[#f1efdf] px-5 py-20 text-center">
+            <div>
+              <h1 className="font-editorial text-3xl font-semibold text-[#173b2b]">Cargando producto…</h1>
+              <p className="mt-3 text-[#59645e]">Si esta ficha no aparece, el producto ya no está publicado.</p>
+              <a href="/" className="mt-5 inline-flex rounded-xl bg-[#004d36] px-5 py-3 font-semibold text-white">Ir al inicio</a>
+            </div>
+          </main>
+        )
+      ) : isAdminView ? (
         /* ADMINISTRADOR */
         <main className="flex-1">
           <Suspense fallback={<PanelLoader />}>
@@ -661,7 +723,7 @@ export const App: React.FC = () => {
       )}
 
       {/* FOOTER PÚBLICO: no aparece para comprador ni productor */}
-      {!hasOwnPanel && (
+      {!isProductPath && !hasOwnPanel && (
         <Footer
           onNavigate={handleNavigate}
           onFilterByMunicipality={handleFilterCatalogByMunicipality}
@@ -674,12 +736,10 @@ export const App: React.FC = () => {
       )}
 
       {/* MODAL PRODUCTO */}
-      {selectedProductForModal && (
+      {!isProductPath && selectedProductForModal && (
         <ProductModal
           product={selectedProductForModal}
-          onClose={() => {
-            setSelectedProductForModal(null);
-          }}
+          onClose={handleCloseProductPage}
           currentUser={currentUser}
           onRequireLogin={() => handleOpenAuth('login')}
           onSubmitQuotation={handleSubmitQuotation}

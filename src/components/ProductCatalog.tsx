@@ -16,6 +16,7 @@ import { Product, ProductCategory } from '../types';
 import { MUNICIPALITIES } from '../data/mockData';
 import { MUNICIPAL_CROP_IMAGES, MUNICIPAL_CROPS, MUNICIPAL_CROPS_SOURCE, TIERRALTA_CROPS_SOURCE } from '../data/municipalCrops';
 import { formatCop, formatShortProductName } from '../utils/formatters';
+import { getProductPath } from '../utils/productSeo';
 
 interface ProductCatalogProps {
   products: Product[];
@@ -898,9 +899,13 @@ export const ProductCatalog: React.FC<ProductCatalogProps> = ({
 
                     <div className="mt-5">
 
-                      <button
+                      <a
                         id={`btn-detail-${product.id}`}
-                        onClick={() => onOpenProductModal(product)}
+                        href={getProductPath(product)}
+                        onClick={(event) => {
+                          event.preventDefault();
+                          onOpenProductModal(product);
+                        }}
                         className="
                           w-full
                           bg-[#003622]
@@ -926,7 +931,7 @@ export const ProductCatalog: React.FC<ProductCatalogProps> = ({
                         Ver producto
                         <ArrowRight className="w-4 h-4" />
 
-                      </button>
+                      </a>
 
                     </div>
 

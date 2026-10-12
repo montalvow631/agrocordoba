@@ -205,6 +205,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   const [registerType, setRegisterType] = useState<
     'buyer' | 'producer'
   >('buyer');
+  const [registerStep, setRegisterStep] = useState<1 | 2 | 3>(1);
 
   const [registerName, setRegisterName] = useState('');
   const [registerGender, setRegisterGender] = useState<'masculino' | 'femenino' | 'neutro' | ''>('');
@@ -255,6 +256,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     setLoginSuccess('');
     setRegisterError('');
     setRegisterSuccess('');
+    setRegisterStep(1);
     setLoginError(googleLoginMessage);
   }, [isOpen, initialTab, googleLoginMessage]);
 
@@ -394,6 +396,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     type: 'buyer' | 'producer'
   ) => {
     setRegisterType(type);
+    setRegisterStep(1);
 
     setRegisterError('');
     setRegisterSuccess('');
@@ -414,6 +417,34 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
     setRegisterError('');
     setRegisterSuccess('');
+
+    if (registerStep < 3) {
+      if (registerStep === 1) {
+        if (registerName.trim().length < 3) {
+          setRegisterError('Escribe un nombre de al menos 3 caracteres.');
+          return;
+        }
+        if (!registerGender) {
+          setRegisterError('Selecciona si eres mujer u hombre.');
+          return;
+        }
+        if (!isValidPhone(registerPhone.trim())) {
+          setRegisterError('Ingresa un número de teléfono válido.');
+          return;
+        }
+        if (!registerCity) {
+          setRegisterError('Selecciona tu municipio.');
+          return;
+        }
+      } else if (registerType === 'producer') {
+        if (!farmName.trim() || !association.trim() || !producerProducts.trim()) {
+          setRegisterError('Completa los datos de tu finca, asociación y productos.');
+          return;
+        }
+      }
+      setRegisterStep((step) => (step + 1) as 2 | 3);
+      return;
+    }
 
     /* -----------------------------------------------
        CAMPOS BÁSICOS
@@ -1575,9 +1606,24 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                         />
                       </div>
 
-                      {/* INFORMACIÓN PERSONAL */}
+                      <ol className="mt-7 grid grid-cols-3 gap-2" aria-label="Pasos para crear tu cuenta">
+                        {[
+                          { step: 1, label: 'Información básica' },
+                          { step: 2, label: registerType === 'buyer' ? 'Negocio' : 'Finca' },
+                          { step: 3, label: 'Acceso' },
+                        ].map(({ step, label }) => (
+                          <li key={step} className="min-w-0">
+                            <div className={`h-1.5 rounded-full ${registerStep >= step ? 'bg-green-700' : 'bg-slate-200'}`} />
+                            <p className={`mt-2 truncate text-[11px] font-semibold ${registerStep === step ? 'text-green-800' : 'text-slate-400'}`}>
+                              {step}. {label}
+                            </p>
+                          </li>
+                        ))}
+                      </ol>
 
                       <div className="mt-7 space-y-5">
+                        {registerStep === 1 && (
+                          <>
                         <SectionTitle
                           number="01"
                           title={
@@ -1625,18 +1671,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                             <ChevronDown size={18} className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-slate-400" />
                           </div>
                         </div>
-
-                        {/* EMAIL */}
-
-                        <InputField
-                          label="Correo electrónico"
-                          placeholder="tucorreo@ejemplo.com"
-                          type="email"
-                          value={registerEmail}
-                          onChange={setRegisterEmail}
-                          icon={<Mail size={19} />}
-                          required
-                        />
 
                         {/* TELEFONO */}
 
@@ -1719,9 +1753,17 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                             />
                           </div>
                         </div>
+                          </>
+                        )}
+
+                        {registerStep === 2 && (
+                          <>
+                        <SectionTitle
+                          number="02"
+                          title={registerType === 'buyer' ? 'Información del negocio' : 'Información productiva'}
+                        />
 
                         {/* COMPRADOR */}
-
                         {registerType === 'buyer' && (
                           <div>
                             <label className="mb-2 block text-sm font-bold text-slate-700">
@@ -1799,11 +1841,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
                         {registerType === 'producer' && (
                           <>
-                            <SectionTitle
-                              number="02"
-                              title="Información productiva"
-                            />
-
                             <InputField
                               label="Nombre de la finca"
                               placeholder="Ej. Finca La Esperanza"
@@ -1862,17 +1899,24 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                             </div>
                           </>
                         )}
+                          </>
+                        )}
+
+                        {registerStep === 3 && (
+                          <>
+                        <SectionTitle number="03" title="Información de acceso" />
+
+                        <InputField
+                          label="Correo electrónico"
+                          placeholder="tucorreo@ejemplo.com"
+                          type="email"
+                          value={registerEmail}
+                          onChange={setRegisterEmail}
+                          icon={<Mail size={19} />}
+                          required
+                        />
 
                         {/* SEGURIDAD */}
-
-                        <SectionTitle
-                          number={
-                            registerType === 'producer'
-                              ? '03'
-                              : '02'
-                          }
-                          title="Seguridad de la cuenta"
-                        />
 
                         <div>
                           <label className="mb-2 block text-sm font-bold text-slate-700">
@@ -2040,11 +2084,14 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                             message={registerSuccess}
                           />
                         )}
+                          </>
+                        )}
 
                         {/* CREAR */}
 
                         <button
                           type="submit"
+                          disabled={isLoading}
                           className="
                             group
                             flex
@@ -2063,7 +2110,9 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                             hover:bg-green-900
                           "
                         >
-                          Crear mi cuenta
+                          {registerStep === 3
+                            ? isLoading ? 'Creando cuenta...' : 'Crear mi cuenta'
+                            : 'Continuar'}
 
                           <ArrowRight
                             size={20}
@@ -2074,11 +2123,20 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                           />
                         </button>
 
-                        <p className="text-center text-xs leading-5 text-slate-400">
-                          Tu cuenta de productor podrá quedar
-                          pendiente de validación antes de
-                          publicar productos.
-                        </p>
+                        <div className="flex items-center justify-between">
+                          {registerStep > 1 ? (
+                            <button type="button" onClick={() => { setRegisterError(''); setRegisterStep((step) => (step - 1) as 1 | 2); }} className="text-sm font-semibold text-slate-500 hover:text-green-800">
+                              Volver
+                            </button>
+                          ) : <span />}
+                          {registerStep === 3 && (
+                            <p className="text-right text-xs leading-5 text-slate-400">
+                              {registerType === 'producer'
+                                ? 'Tu cuenta de productor quedará pendiente de validación.'
+                                : 'Revisa tus datos antes de crear la cuenta.'}
+                            </p>
+                          )}
+                        </div>
                       </div>
                     </form>
                   )}
