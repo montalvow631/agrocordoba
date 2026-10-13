@@ -86,7 +86,7 @@ Google OAuth y el correo de recuperación o confirmación dependen de credencial
 
 ## Despliegue
 
-La documentación existente indica que el proyecto está publicado en Render, pero la URL pública exacta no está registrada en los archivos revisados. **Enlace al despliegue: pendiente de confirmar y agregar.**
+El proyecto está publicado en Render: **[https://agrocordoba.onrender.com/](https://agrocordoba.onrender.com/)**.
 
 El despliegue documentado utiliza SQLite en almacenamiento efímero; los datos pueden perderse al reiniciar o volver a desplegar. No debe considerarse almacenamiento persistente para datos reales.
 
