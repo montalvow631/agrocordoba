@@ -33,6 +33,7 @@ En una segunda terminal, desde la raíz, ejecuta `npm run dev`.
 - Avisos leídos de compradores: `GET /api/notifications/read`, `PUT /api/notifications/read`.
 - Administración: `GET /api/admin/users`, `PATCH /api/admin/users/<id>`, `PATCH /api/admin/users/<id>/status`, `DELETE /api/admin/users/<id>`, `POST /api/admin/products`.
 - Estado: `GET /api/health`.
+- SEO: `GET /producto/<slug>/<id>` entrega metadatos y JSON-LD iniciales para publicaciones reales activas; `GET /sitemap.xml` lista la página principal y las publicaciones activas.
 
 Las operaciones administrativas exigen sesión con rol `admin`. El administrador puede aprobar, editar o eliminar cuentas; eliminar una cuenta también elimina sus cotizaciones, publicaciones y preferencias asociadas. Las publicaciones nuevas se asignan a un productor aprobado. Los productores solo pueden editar sus propios productos y gestionar sus cotizaciones.
 
@@ -45,6 +46,8 @@ flask --app app create-admin
 ```
 
 El comando solicita correo y contraseña (mínimo 12 caracteres). No guardes esa contraseña en archivos del proyecto. En una base remota, ejecuta el comando con el `DATABASE_URL` de esa base configurado localmente y conserva las credenciales fuera de Git.
+
+En despliegues sin consola disponible, configura `ADMIN_EMAIL` y `ADMIN_PASSWORD` como variables secretas del servicio. Deben configurarse juntas y la contraseña debe tener al menos 12 caracteres. Al iniciar, se crea una cuenta administradora solo si ese correo no existe; no se modifica la contraseña de cuentas existentes. No guardes esos valores en el repositorio.
 
 ## Correo de recuperación y confirmación
 
@@ -79,7 +82,7 @@ Configura al desplegar:
 - `COOKIE_SECURE=true` y `FRONTEND_URL=https://.../`.
 - Credenciales OAuth y correo, solo si se van a activar.
 
-Los servicios gratuitos pueden suspenderse y borrar archivos locales. No almacenes una SQLite de producción en el disco efímero del servicio ni uses una base gratuita con fecha de vencimiento para guardar cuentas reales.
+El servicio público actual de Render usa SQLite en su sistema de archivos efímero; cuentas, publicaciones y cotizaciones pueden perderse al reiniciar o desplegar. Los servicios gratuitos pueden suspenderse y borrar archivos locales. No uses ese servicio para conservar datos reales importantes; configura almacenamiento persistente antes de depender de él.
 
 ## Pruebas
 

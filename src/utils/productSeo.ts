@@ -62,3 +62,16 @@ export const getProductStructuredData = (product: Product) => ({
       }
     : {}),
 });
+
+export const getProductListStructuredData = (products: Product[]) => ({
+  '@context': 'https://schema.org',
+  '@type': 'ItemList',
+  itemListElement: products.map((product, index) => ({
+    '@type': 'ListItem',
+    position: index + 1,
+    item: {
+      ...getProductStructuredData(product),
+      '@context': undefined,
+    },
+  })),
+});

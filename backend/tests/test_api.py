@@ -1,4 +1,6 @@
 from datetime import datetime, timezone
+import json
+import re
 
 from app import (
     Favorite,
@@ -69,6 +71,48 @@ def test_me_clears_a_session_for_a_missing_user(client):
     assert response.status_code == 401
     with client.session_transaction() as session:
         assert "user_id" not in session
+
+
+def test_local_registration_returns_the_created_user(client):
+    response = client.post(
+        "/api/auth/register",
+        json={
+            "name": "Compradora de prueba",
+            "email": "compradora@example.com",
+            "password": "StrongPass123",
+            "gender": "femenino",
+            "phone": "3001234567",
+            "city": "Montería",
+            "role": "cliente",
+        },
+    )
+
+    assert response.status_code == 201
+    assert response.is_json
+    assert response.get_json()["user"]["email"] == "compradora@example.com"
+    assert response.get_json()["user"]["role"] == "cliente"
+    assert User.query.filter_by(email="compradora@example.com").first() is not None
+
+
+def test_local_registration_rejects_duplicate_email_with_json(client):
+    create_user()
+
+    response = client.post(
+        "/api/auth/register",
+        json={
+            "name": "Otro usuario",
+            "email": "campesino@example.com",
+            "password": "StrongPass123",
+            "gender": "masculino",
+            "phone": "3001234567",
+            "city": "Montería",
+            "role": "cliente",
+        },
+    )
+
+    assert response.status_code == 409
+    assert response.is_json
+    assert "Ya existe" in response.get_json()["error"]
 
 
 def test_logout_clears_the_session(client):
@@ -149,6 +193,79 @@ def test_active_producer_can_publish_product_with_negative_longitude(client):
 
     assert response.status_code == 201
     assert response.get_json()["product"]["lng"] == -75.88
+
+
+def test_product_page_includes_server_rendered_metadata_and_schema(client, tmp_path, monkeypatch):
+    producer = create_user(
+        google_sub="seo-producer-sub",
+        email="seo-producer@example.com",
+        role="productor",
+        status="activo",
+    )
+    listing = ProductListing(
+        producer_id=producer.id,
+        data=product_payload(
+            name="Ñame espino",
+            description="Ñame fresco de Córdoba.",
+            image="/images/name-real.jpg",
+            municipalityName="Ciénaga de Oro",
+        ),
+    )
+    db.session.add(listing)
+    db.session.commit()
+    dist_dir = tmp_path / "dist"
+    dist_dir.mkdir()
+    (dist_dir / "index.html").write_text(
+        '<!doctype html><html><head><title>AgroCórdoba</title>'
+        '<meta name="description" content="Inicio" />'
+        '<link rel="canonical" href="https://agrocordoba.onrender.com/" />'
+        '<meta property="og:url" content="https://agrocordoba.onrender.com/" />'
+        '<meta property="og:title" content="Inicio" />'
+        '<meta property="og:description" content="Inicio" />'
+        '<meta property="og:image" content="" />'
+        '</head><body><div id="root"></div></body></html>',
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("FRONTEND_DIST_DIR", str(dist_dir))
+
+    response = client.get(f"/producto/name/{listing.id}")
+    html_response = response.get_data(as_text=True)
+    schema_match = re.search(
+        r'<script[^>]*type="application/ld\+json">(.*?)</script>',
+        html_response,
+    )
+
+    assert response.status_code == 200
+    assert "<title>Ñame espino en Ciénaga de Oro | AgroCórdoba</title>" in html_response
+    assert 'rel="canonical" href="http://localhost/producto/name-espino/' in html_response
+    assert "<h1>Ñame espino</h1>" in html_response
+    assert schema_match is not None
+    schema = json.loads(schema_match.group(1))
+    assert schema["@type"] == "Product"
+    assert schema["offers"]["price"] == 2500
+    assert schema["offers"]["priceSpecification"]["unitCode"] == "KGM"
+
+
+def test_sitemap_lists_active_public_product_pages(client):
+    producer = create_user(
+        google_sub="sitemap-producer-sub",
+        email="sitemap-producer@example.com",
+        role="productor",
+        status="activo",
+    )
+    listing = ProductListing(
+        producer_id=producer.id,
+        data=product_payload(name="Ñame espino"),
+    )
+    db.session.add(listing)
+    db.session.commit()
+
+    response = client.get("/sitemap.xml")
+    sitemap = response.get_data(as_text=True)
+
+    assert response.status_code == 200
+    assert response.mimetype == "application/xml"
+    assert f"/producto/name-espino/{listing.id}" in sitemap
 
 
 def test_admin_can_list_quotes_and_edit_products(client):

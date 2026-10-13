@@ -6,7 +6,7 @@ Plataforma que conecta a compradores con productores campesinos de Córdoba, Col
 
 - Frontend: React 19, TypeScript, Vite 6, Tailwind CSS 4, Leaflet y React Leaflet.
 - Backend: Python 3.13, Flask, Flask-SQLAlchemy y SQLAlchemy.
-- Base de datos local: SQLite. Producción: PostgreSQL mediante `DATABASE_URL`.
+- Base de datos: SQLite local; SQLAlchemy también admite PostgreSQL y MySQL mediante `DATABASE_URL`. El servicio público de Render usa actualmente SQLite en el sistema de archivos efímero de su plan gratuito.
 - Autenticación: correo y contraseña con sesiones Flask; Google OAuth es opcional.
 
 ## Ejecutar en Windows
@@ -35,7 +35,7 @@ Completa `FLASK_SECRET_KEY` en `backend/.env` antes de iniciar Flask. El fronten
 
 - Registro e inicio de sesión con contraseña; los productores quedan pendientes hasta la aprobación del administrador.
 - Publicaciones de productores, edición y eliminación propias; solicitudes de cotización con estado administrado por el productor.
-- Panel administrador conectado para revisar usuarios, aprobar, editar o eliminar cuentas, consultar cotizaciones y gestionar publicaciones.
+- Panel administrador conectado para revisar usuarios, aprobar, editar o eliminar cuentas, consultar cotizaciones y gestionar publicaciones. La cuenta puede crearse localmente con `flask --app app create-admin` o al iniciar el backend con `ADMIN_EMAIL` y `ADMIN_PASSWORD` configuradas como secretos.
 - Perfil, favoritos y avisos leídos asociados a la cuenta.
 - Google OAuth y códigos de recuperación/confirmación por correo dependen de credenciales externas configuradas en variables de entorno.
 
@@ -50,17 +50,21 @@ cd backend
 .\.venv\Scripts\python.exe -m pytest -q -p no:cacheprovider
 ```
 
-## Preparación para publicar (todavía no desplegada)
+## Despliegue actual y producción
 
-El `Dockerfile` compila el frontend y ejecuta Flask con Gunicorn en el mismo origen. Para Render, conecta el repositorio de GitHub y crea un servicio Docker con el contexto y Dockerfile en la raíz del repositorio. Antes de desplegar:
+El sitio está publicado en Render desde la rama `main`. El `Dockerfile` compila el frontend y ejecuta Flask con Gunicorn en el mismo origen. La configuración actual usa el plan gratuito y SQLite en almacenamiento efímero; los datos pueden perderse al reiniciar o volver a desplegar el servicio.
 
-1. Configura una base PostgreSQL persistente en `DATABASE_URL`. No uses el SQLite local en un servicio alojado con disco efímero.
-2. Configura `FLASK_SECRET_KEY` con un valor secreto, `COOKIE_SECURE=true` y `FRONTEND_URL` con la URL HTTPS del servicio.
-3. Para Google, registra `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` y el callback HTTPS `/auth/google/callback` en Google Cloud.
-4. Para correos desde un alojamiento que bloquee SMTP, configura `RESEND_API_KEY` y un remitente verificado en `RESEND_FROM`. En local también se admite SMTP.
-5. Crea la cuenta administradora conectando temporalmente la CLI a la base alojada y ejecutando `flask --app app create-admin` desde `backend`.
+Para una instalación de producción con datos persistentes:
+
+1. Configura una base de datos persistente permitida por el proyecto y define su URL en `DATABASE_URL`.
+2. Configura `FLASK_SECRET_KEY` como secreto y `COOKIE_SECURE=true`.
+3. Para crear un administrador al arrancar, configura juntas `ADMIN_EMAIL` y `ADMIN_PASSWORD` como secretos del servicio. La contraseña debe tener al menos 12 caracteres. El backend crea la cuenta solo si no existe; no cambia la clave de una cuenta existente.
+4. Para Google, registra `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` y el callback HTTPS `/auth/google/callback` en Google Cloud.
+5. Para correos desde un alojamiento que bloquee SMTP, configura `RESEND_API_KEY` y un remitente verificado en `RESEND_FROM`. En local también se admite SMTP.
 6. Migra los datos de `backend/instance/agrocordoba.db` antes de habilitar cuentas existentes. El despliegue no copia automáticamente la base local.
 
-Render ofrece servicios gratis con limitaciones: los servicios web se suspenden tras inactividad y su sistema de archivos es efímero. La base PostgreSQL gratuita de Render expira; revisa sus condiciones actuales y no la uses como almacenamiento permanente de cuentas reales. Esta configuración está preparada, pero no se ha publicado ningún servicio.
+Render ofrece servicios gratis con limitaciones y su sistema de archivos es efímero. En Render, los discos persistentes requieren un plan compatible de pago; no actualices sin revisar antes el costo. Nunca subas `backend/.env`, contraseñas, claves OAuth, credenciales de correo, la base local ni archivos `.venv` al repositorio.
 
-Nunca subas `backend/.env`, contraseñas, claves OAuth, credenciales de correo, la base local ni archivos `.venv` al repositorio.
+## SEO de productos
+
+Las publicaciones reales de productores activos se sirven con metadatos y JSON-LD `Product` en el HTML inicial de sus rutas `/producto/<slug>/<id>`. El sitemap XML incluye esas publicaciones y se actualiza desde la base de datos. Los productos de muestra del frontend no se incluyen como ofertas reales.

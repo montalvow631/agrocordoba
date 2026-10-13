@@ -16,7 +16,7 @@ import { Product, ProductCategory } from '../types';
 import { MUNICIPALITIES } from '../data/mockData';
 import { MUNICIPAL_CROP_IMAGES, MUNICIPAL_CROPS, MUNICIPAL_CROPS_SOURCE, TIERRALTA_CROPS_SOURCE } from '../data/municipalCrops';
 import { formatCop, formatShortProductName } from '../utils/formatters';
-import { getProductPath } from '../utils/productSeo';
+import { getProductListStructuredData, getProductPath } from '../utils/productSeo';
 
 interface ProductCatalogProps {
   products: Product[];
@@ -128,6 +128,12 @@ export const ProductCatalog: React.FC<ProductCatalogProps> = ({
     : MUNICIPAL_CROPS_SOURCE;
 
   return (
+    <>
+    {filteredProducts.length > 0 && (
+      <script type="application/ld+json">
+        {JSON.stringify(getProductListStructuredData(filteredProducts)).replace(/</g, '\\u003c')}
+      </script>
+    )}
     <section
       id="catalogo"
       className="bg-[#f7f6ef] py-16"
@@ -971,5 +977,6 @@ export const ProductCatalog: React.FC<ProductCatalogProps> = ({
 
       </div>
     </section>
+    </>
   );
 };

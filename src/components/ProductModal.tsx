@@ -197,10 +197,12 @@ export const ProductModal: React.FC<ProductModalProps> = ({
   ]);
 
   const ProductHeading = isPage ? 'h1' : 'h3';
+  const hasServerStructuredData = isPage &&
+    document.getElementById('product-structured-data') !== null;
 
   return (
     <>
-    {isPage && (
+    {isPage && !hasServerStructuredData && (
       <script type="application/ld+json">
         {JSON.stringify(getProductStructuredData(product)).replace(/</g, '\\u003c')}
       </script>

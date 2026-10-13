@@ -601,9 +601,26 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           password: registerPassword,
         }),
       });
-      const result = await response.json();
+      let result: { user?: UserProfile; error?: string };
+      try {
+        result = await response.json() as { user?: UserProfile; error?: string };
+      } catch {
+        if (!response.ok) {
+          throw new Error(
+            `No se pudo crear la cuenta (error del servidor ${response.status}). Antes de intentarlo otra vez, prueba iniciar sesión para verificar si ya quedó creada.`
+          );
+        }
+        throw new Error(
+          'El servidor respondió en un formato inesperado. Prueba iniciar sesión para verificar si la cuenta ya quedó creada.'
+        );
+      }
       if (!response.ok) throw new Error(result.error || 'No se pudo crear la cuenta.');
-      const newUser = result.user as UserProfile;
+      if (!result.user) {
+        throw new Error(
+          'El servidor no confirmó la creación de la cuenta. Prueba iniciar sesión antes de repetir el registro.'
+        );
+      }
+      const newUser = result.user;
       setRegisterSuccess(
         registerType === 'producer'
           ? 'Tu solicitud fue registrada. Tu cuenta de productor queda pendiente de validaci\u00f3n.'

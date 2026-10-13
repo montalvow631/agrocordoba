@@ -3,12 +3,16 @@ import base64
 import binascii
 import hashlib
 import hmac
+import html
+import json
+import re
 import secrets
 import smtplib
+import unicodedata
 import uuid
 from datetime import datetime, timedelta, timezone
 from email.message import EmailMessage
-from urllib.parse import urlencode
+from urllib.parse import quote, urlencode
 
 import click
 import requests
@@ -17,6 +21,7 @@ from dotenv import load_dotenv
 from flask import Flask, jsonify, redirect, request, send_from_directory, session
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy import inspect, text
+from sqlalchemy.exc import IntegrityError
 from werkzeug.security import check_password_hash, generate_password_hash
 
 load_dotenv()
@@ -648,7 +653,13 @@ def register_local_user():
         status="pendiente" if payload["role"] == "productor" else "activo",
     )
     db.session.add(user)
-    db.session.commit()
+    try:
+        db.session.commit()
+    except IntegrityError:
+        db.session.rollback()
+        if User.query.filter_by(email=payload["email"]).first():
+            return jsonify({"error": "Ya existe una cuenta con ese correo electrónico."}), 409
+        raise
     session.clear()
     session["user_id"] = user.id
     return jsonify(_user_payload(user)), 201
@@ -1064,13 +1075,176 @@ def health():
     return jsonify({"status": "ok"})
 
 
-@app.get("/")
-def frontend_index():
+def _frontend_index_content():
     dist_dir = os.environ.get("FRONTEND_DIST_DIR", os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "dist")))
     index_path = os.path.join(dist_dir, "index.html")
     if not os.path.isfile(index_path):
+        return None
+    with open(index_path, encoding="utf-8") as index_file:
+        return index_file.read()
+
+
+def _product_slug(name):
+    normalized_name = unicodedata.normalize("NFD", name)
+    ascii_name = "".join(char for char in normalized_name if not unicodedata.combining(char))
+    return re.sub(r"^-|-$", "", re.sub(r"[^a-z0-9]+", "-", ascii_name.lower()))
+
+
+def _product_structured_data(product, product_url):
+    image = product.get("image", "")
+    if image and not image.startswith(("http://", "https://")):
+        image = f"{request.url_root.rstrip('/')}/{image.lstrip('/')}"
+    product_data = {
+        "@context": "https://schema.org",
+        "@type": "Product",
+        "name": product["name"],
+        "description": product.get("description", ""),
+        "image": image,
+        "sku": product["id"],
+        "category": product.get("category", ""),
+        "url": product_url,
+        "brand": {"@type": "Brand", "name": "AgroCórdoba"},
+        "offers": {
+            "@type": "Offer",
+            "url": product_url,
+            "priceCurrency": "COP",
+            "price": product["priceCopKg"],
+            "priceSpecification": {
+                "@type": "UnitPriceSpecification",
+                "price": product["priceCopKg"],
+                "priceCurrency": "COP",
+                "unitCode": "KGM",
+                "referenceQuantity": {
+                    "@type": "QuantitativeValue",
+                    "value": 1,
+                    "unitCode": "KGM",
+                },
+            },
+            "availability": (
+                "https://schema.org/InStock"
+                if product.get("stockAvailableKg", 0) > 0
+                else "https://schema.org/OutOfStock"
+            ),
+            "seller": {"@type": "Person", "name": product["producerName"]},
+            "areaServed": {
+                "@type": "City",
+                "name": product.get("municipalityName", ""),
+            },
+        },
+    }
+    return product_data
+
+
+@app.get("/producto/<slug>/<string:product_id>")
+def frontend_product_page(slug, product_id):
+    index_html = _frontend_index_content()
+    if index_html is None:
         return jsonify({"error": "El frontend todavía no está compilado."}), 404
-    return send_from_directory(dist_dir, "index.html")
+
+    listing = (
+        ProductListing.query.join(User, ProductListing.producer_id == User.id)
+        .filter(ProductListing.id == product_id, User.status == "activo")
+        .first()
+    )
+    if listing is None:
+        return app.response_class(index_html, content_type="text/html; charset=utf-8")
+
+    product = listing.to_public_dict()
+    product_url = (
+        f"{request.url_root.rstrip('/')}/producto/"
+        f"{_product_slug(product['name'])}/{quote(product_id, safe='')}"
+    )
+    title = f"{product['name']} en {product.get('municipalityName', 'Córdoba')} | AgroCórdoba"
+    description = product.get("description") or f"{product['name']} ofrecido por productores de Córdoba."
+    escaped_title = html.escape(title, quote=True)
+    escaped_description = html.escape(description, quote=True)
+    escaped_url = html.escape(product_url, quote=True)
+    image = product.get("image", "")
+    if image and not image.startswith(("http://", "https://")):
+        image = f"{request.url_root.rstrip('/')}/{image.lstrip('/')}"
+    escaped_image = html.escape(image, quote=True)
+    structured_data = json.dumps(
+        _product_structured_data(product, product_url),
+        ensure_ascii=False,
+    ).replace("<", "\\u003c")
+
+    replacements = (
+        (r"<title>.*?</title>", f"<title>{escaped_title}</title>"),
+        (
+            r'<meta name="description"[^>]*>',
+            f'<meta name="description" content="{escaped_description}" />',
+        ),
+        (
+            r'<link rel="canonical"[^>]*>',
+            f'<link rel="canonical" href="{escaped_url}" />',
+        ),
+        (
+            r'<meta property="og:url"[^>]*>',
+            f'<meta property="og:url" content="{escaped_url}" />',
+        ),
+        (
+            r'<meta property="og:title"[^>]*>',
+            f'<meta property="og:title" content="{escaped_title}" />',
+        ),
+        (
+            r'<meta property="og:description"[^>]*>',
+            f'<meta property="og:description" content="{escaped_description}" />',
+        ),
+        (
+            r'<meta property="og:image"[^>]*>',
+            f'<meta property="og:image" content="{escaped_image}" />',
+        ),
+    )
+    for pattern, replacement in replacements:
+        index_html = re.sub(pattern, lambda _: replacement, index_html, count=1, flags=re.IGNORECASE)
+
+    price = f"{int(product['priceCopKg']):,}".replace(",", ".")
+    server_content = (
+        f'<main><article><h1>{html.escape(product["name"])}</h1>'
+        f'<p>{html.escape(description)}</p>'
+        f'<p>Precio de referencia: $ {price} COP por kilogramo.</p>'
+        f'<p>Productor: {html.escape(product["producerName"])}. '
+        f'Origen: {html.escape(product.get("municipalityName", "Córdoba"))}.</p>'
+        "</article></main>"
+    )
+    index_html = index_html.replace('<div id="root"></div>', f'<div id="root">{server_content}</div>', 1)
+    index_html = index_html.replace(
+        "</head>",
+        f'<script id="product-structured-data" type="application/ld+json">{structured_data}</script></head>',
+        1,
+    )
+    return app.response_class(index_html, content_type="text/html; charset=utf-8")
+
+
+@app.get("/sitemap.xml")
+def frontend_sitemap():
+    base_url = request.url_root.rstrip("/")
+    listings = (
+        ProductListing.query.join(User, ProductListing.producer_id == User.id)
+        .filter(User.status == "activo")
+        .order_by(ProductListing.created_at.desc())
+        .all()
+    )
+    locations = [f"{base_url}/"]
+    locations.extend(
+        f"{base_url}/producto/{_product_slug(listing.data['name'])}/{quote(listing.id, safe='')}"
+        for listing in listings
+    )
+    sitemap = (
+        '<?xml version="1.0" encoding="UTF-8"?>'
+        '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">'
+        + "".join(f"<url><loc>{html.escape(location)}</loc></url>" for location in locations)
+        + "</urlset>"
+    )
+    return app.response_class(sitemap, content_type="application/xml; charset=utf-8")
+
+
+@app.get("/")
+def frontend_index():
+    index_html = _frontend_index_content()
+    if index_html is None:
+        return jsonify({"error": "El frontend todavía no está compilado."}), 404
+    return app.response_class(index_html, content_type="text/html; charset=utf-8")
 
 
 @app.get("/<path:frontend_path>")
