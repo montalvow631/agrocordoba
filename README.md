@@ -1,70 +1,97 @@
 # AgroCórdoba
 
-Plataforma que conecta a compradores con productores campesinos de Córdoba, Colombia. El proyecto busca dar visibilidad a las cosechas y promover el trabajo decente y el crecimiento económico (ODS 8).
+## ODS abordado
 
-## Tecnologías
+**ODS 8: Trabajo decente y crecimiento económico.** AgroCórdoba busca contribuir a la visibilidad comercial de productores campesinos de Córdoba, Colombia.
 
-- Frontend: React 19, TypeScript, Vite 6, Tailwind CSS 4, Leaflet y React Leaflet.
-- Backend: Python 3.13, Flask, Flask-SQLAlchemy y SQLAlchemy.
-- Base de datos: SQLite local; SQLAlchemy también admite PostgreSQL y MySQL mediante `DATABASE_URL`. El servicio público de Render usa actualmente SQLite en el sistema de archivos efímero de su plan gratuito.
-- Autenticación: correo y contraseña con sesiones Flask; Google OAuth es opcional.
+## Descripción de la solución
 
-## Ejecutar en Windows
+AgroCórdoba es una plataforma web que conecta a compradores con productores campesinos del departamento de Córdoba. Permite explorar productos agrícolas y municipios, y ofrece flujos de registro, publicaciones de cosechas y solicitudes de cotización. Las cuentas reales y las funciones conectadas guardan sus datos en el backend; el proyecto también incluye productos y accesos de demostración locales, que no representan ventas ni usuarios reales.
 
-Instala Node.js 20 o superior. En una terminal desde la raíz:
+La plataforma no procesa pagos. Google OAuth y el envío de códigos por correo requieren configuración de servicios externos y no están habilitados automáticamente en una instalación local.
+
+## Integrantes
+
+- Wilmer Caraballo
+- Ayanis Sanabria
+
+## Tecnologías utilizadas
+
+- **Frontend:** React 19, TypeScript, Vite 6, Tailwind CSS 4, Leaflet y React Leaflet.
+- **Backend:** Python 3.13, Flask, Flask-SQLAlchemy y SQLAlchemy.
+- **Base de datos:** SQLite por defecto en desarrollo; el backend también admite PostgreSQL y MySQL mediante `DATABASE_URL`.
+- **Autenticación:** sesiones Flask con correo y contraseña; Google OAuth opcional.
+
+## Requisitos
+
+- Node.js 20 o superior.
+- Python 3.13.
+- npm.
+
+## Instalación y ejecución local en Windows
+
+Clona o descarga el proyecto y abre PowerShell en su carpeta raíz. Instala las dependencias del frontend:
 
 ```powershell
 npm install
-npm run dev
 ```
 
-En otra terminal:
+En una segunda terminal de PowerShell, prepara el backend:
 
 ```powershell
 cd backend
-if (-not (Test-Path .venv)) { py -3.13 -m venv .venv }
-if (-not (Test-Path .env)) { Copy-Item .env.example .env }
+py -3.13 -m venv .venv
 .\.venv\Scripts\Activate.ps1
 py -m pip install -r requirements.txt
+if (-not (Test-Path .env)) { Copy-Item .env.example .env }
+```
+
+Edita `backend/.env` y asigna un valor privado a `FLASK_SECRET_KEY`. Puedes generar uno desde PowerShell con:
+
+```powershell
+py -c "import secrets; print(secrets.token_hex(32))"
+```
+
+Inicia el backend desde la carpeta `backend`:
+
+```powershell
 flask --app app run --debug --port 5000
 ```
 
-Completa `FLASK_SECRET_KEY` en `backend/.env` antes de iniciar Flask. El frontend queda en `http://localhost:3000`; Vite envía `/api` y `/auth` al backend en `http://localhost:5000`.
-
-## Funciones conectadas a Flask
-
-- Registro e inicio de sesión con contraseña; los productores quedan pendientes hasta la aprobación del administrador.
-- Publicaciones de productores, edición y eliminación propias; solicitudes de cotización con estado administrado por el productor.
-- Panel administrador conectado para revisar usuarios, aprobar, editar o eliminar cuentas, consultar cotizaciones y gestionar publicaciones. La cuenta puede crearse localmente con `flask --app app create-admin` o al iniciar el backend con `ADMIN_EMAIL` y `ADMIN_PASSWORD` configuradas como secretos.
-- Perfil, favoritos y avisos leídos asociados a la cuenta.
-- Google OAuth y códigos de recuperación/confirmación por correo dependen de credenciales externas configuradas en variables de entorno.
-
-Los accesos de demostración, productos de referencia y algunos datos de analítica siguen siendo locales o de muestra. No representan ventas reales. Las fotos subidas se guardan en la base de datos del usuario autenticado.
-
-## Verificaciones
+En la terminal de la raíz del proyecto, inicia el frontend:
 
 ```powershell
-npm run lint
-npm run build
-cd backend
-.\.venv\Scripts\python.exe -m pytest -q -p no:cacheprovider
+npm run dev
 ```
 
-## Despliegue actual y producción
+Abre <http://localhost:3000>. El servidor de desarrollo de Vite reenvía las solicitudes `/api` y `/auth` al backend en `http://localhost:5000`. La base SQLite local se crea en `backend/instance/` cuando inicia el backend.
 
-El sitio está publicado en Render desde la rama `main`. El `Dockerfile` compila el frontend y ejecuta Flask con Gunicorn en el mismo origen. La configuración actual usa el plan gratuito y SQLite en almacenamiento efímero; los datos pueden perderse al reiniciar o volver a desplegar el servicio.
+## Variables de entorno
 
-Para una instalación de producción con datos persistentes:
+El archivo de referencia es [`backend/.env.example`](backend/.env.example). Cópialo como `backend/.env` para desarrollo local. **No publiques el archivo `.env` ni agregues credenciales reales al repositorio.**
 
-1. Configura una base de datos persistente permitida por el proyecto y define su URL en `DATABASE_URL`.
-2. Configura `FLASK_SECRET_KEY` como secreto y `COOKIE_SECURE=true`.
-3. Para crear un administrador al arrancar, configura juntas `ADMIN_EMAIL` y `ADMIN_PASSWORD` como secretos del servicio. La contraseña debe tener al menos 12 caracteres. El backend crea la cuenta solo si no existe; no cambia la clave de una cuenta existente.
-4. Para Google, registra `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` y el callback HTTPS `/auth/google/callback` en Google Cloud.
-5. Para correos desde un alojamiento que bloquee SMTP, configura `RESEND_API_KEY` y un remitente verificado en `RESEND_FROM`. En local también se admite SMTP.
-6. Migra los datos de `backend/instance/agrocordoba.db` antes de habilitar cuentas existentes. El despliegue no copia automáticamente la base local.
+| Variable | Uso |
+|---|---|
+| `FLASK_SECRET_KEY` | **Obligatoria.** Clave privada para las sesiones Flask. |
+| `DATABASE_URL` | URL de conexión; si se omite, el backend usa SQLite local (`sqlite:///agrocordoba.db`). |
+| `COOKIE_SECURE` | Activa cookies seguras en HTTPS (`false` en el ejemplo local). |
+| `FLASK_DEBUG` | Controla el modo de depuración de la ejecución local. |
+| `FRONTEND_URL` | URL del frontend para redirecciones; su valor predeterminado es `http://localhost:3000/`. |
+| `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_REDIRECT_URI` | Opcionales; necesarios para configurar Google OAuth. |
+| `RESEND_API_KEY`, `RESEND_FROM` | Opcionales; configuración de envío de correo mediante Resend. |
+| `SMTP_HOST`, `SMTP_PORT`, `SMTP_USERNAME`, `SMTP_PASSWORD`, `SMTP_FROM`, `SMTP_USE_TLS`, `SMTP_USE_SSL` | Opcionales; configuración alternativa de correo SMTP. |
+| `ADMIN_EMAIL`, `ADMIN_PASSWORD` | Opcionales; si se configuran juntas en el entorno del servicio, permiten crear una cuenta administradora al iniciar. No son necesarias para ejecutar localmente la aplicación básica. |
 
-Render ofrece servicios gratis con limitaciones y su sistema de archivos es efímero. En Render, los discos persistentes requieren un plan compatible de pago; no actualices sin revisar antes el costo. Nunca subas `backend/.env`, contraseñas, claves OAuth, credenciales de correo, la base local ni archivos `.venv` al repositorio.
+Google OAuth y el correo de recuperación o confirmación dependen de credenciales válidas de los respectivos proveedores. No se incluyen claves, contraseñas ni tokens en este repositorio.
 
-## SEO de productos
+## Despliegue
 
-Las publicaciones reales de productores activos se sirven con metadatos y JSON-LD `Product` en el HTML inicial de sus rutas `/producto/<slug>/<id>`. El sitemap XML incluye esas publicaciones y se actualiza desde la base de datos. Los productos de muestra del frontend no se incluyen como ofertas reales.
+La documentación existente indica que el proyecto está publicado en Render, pero la URL pública exacta no está registrada en los archivos revisados. **Enlace al despliegue: pendiente de confirmar y agregar.**
+
+El despliegue documentado utiliza SQLite en almacenamiento efímero; los datos pueden perderse al reiniciar o volver a desplegar. No debe considerarse almacenamiento persistente para datos reales.
+
+## Base de datos de ejemplo
+
+El proyecto incluye un esquema SQL, un diagrama entidad-relación y una base SQLite de muestra con registros ficticios en [`backend/database/`](backend/database/). La base de muestra no es un respaldo de producción ni contiene usuarios con contraseñas válidas.
+
+Para consultar la documentación del backend, las rutas y las instrucciones adicionales, revisa [`backend/README.md`](backend/README.md).
