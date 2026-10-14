@@ -5,13 +5,15 @@
 ## Portada
 
 - **Universidad:** Universidad Cooperativa de Colombia
+- **Facultad:** Ingeniería
+- **Campus:** Montería
 - **Actividad:** Actividad Evaluativa Momento 2 – Desarrollo Sostenible
 - **Proyecto:** AgroCórdoba
 - **ODS abordado:** ODS 8 – Trabajo decente y crecimiento económico
-- **Integrantes:** Wilmer Caraballo y Ayanis Sanabria
-- **Curso / asignatura:** [completar]
-- **Docente:** [completar]
-- **Sede y fecha:** [completar]
+- **Integrantes:** Wilmer Caraballo Montalvo y Ayanis Sanabria Perea
+- **Curso / asignatura:** Desarrollo Sostenible
+- **Docente:** Mauricio Antonio Ricardo Padilla
+- **Lugar y año:** Montería, Córdoba — 2026
 
 ## Tabla de contenido
 
@@ -90,17 +92,23 @@ No usar estas etiquetas como si fueran capturas existentes; reemplazarlas por ev
 
 ## 10. Cambios frente al Momento 1
 
-No se encontró el informe ni la entrega del Momento 1 en los archivos revisados. Completar esta sección cuando el equipo aporte esa versión:
+La comparación se basa en las imágenes compartidas del documento del Momento 1. Ese documento presenta la propuesta **“AgroConecta ODS 8: Arquitectura de software y plataforma web modular para la visibilización y comercialización directa de la producción campesina en Colombia”**. En el Momento 2 el proyecto aparece como **AgroCórdoba**. Las imágenes del Momento 1 muestran planteamiento del problema, justificación, objetivos, solución propuesta y diagramas conceptuales de arquitectura, flujo de datos y componentes.
 
 | Aspecto | Momento 1 (evidencia/fuente) | Momento 2 (estado y evidencia) | Cambio y justificación |
 |---|---|---|---|
-| Problema y alcance | [pendiente: documento Momento 1] | [completar] | [completar] |
-| Diseño/interfaz | [pendiente] | [completar] | [completar] |
-| Arquitectura y datos | [pendiente] | [completar] | [completar] |
-| Funcionalidades | [pendiente] | [completar] | [completar] |
-| ODS e impacto esperado | [pendiente] | [completar] | [completar] |
+| Problema y alcance | Se plantea reducir intermediación, asimetrías de información y falta de canales directos para pequeños productores; el alcance se formula para Colombia. El documento afirma que intermediarios capturan entre 50 % y 70 % del precio final, pero las páginas compartidas no muestran la fuente de ese dato. | La aplicación se centra en conectar compradores con productores de Córdoba mediante catálogo, perfiles/publicaciones y solicitudes de cotización. | Se concreta el territorio y se implementa un flujo de visibilidad y contacto/cotización. Si se conserva el porcentaje 50–70 % en el informe, agregar una fuente verificable; de lo contrario, presentarlo como afirmación de la propuesta inicial, no como dato comprobado. |
+| Nombre e identidad | La propuesta se denomina “AgroConecta ODS 8”. | El producto y repositorio actuales se llaman AgroCórdoba. | Hay un cambio de nombre entre propuesta y producto. El equipo debe confirmar y explicar el motivo real del cambio; no está documentado en la evidencia compartida. |
+| Tecnologías y arquitectura | Los diagramas son conceptuales: mencionan cliente web/móvil, servicios y despliegue tipo AWS; el diagrama isométrico muestra Node.js/FastAPI, PostgreSQL, SQLite y S3; el diagrama de componentes menciona PostgreSQL, almacenamiento S3 y una pasarela Wompi/PSE. | El código actual usa React, TypeScript y Vite en frontend; Flask y SQLAlchemy en backend; SQLite por defecto y configuración por `DATABASE_URL` para PostgreSQL/MySQL. No se documenta una integración activa con AWS/S3 o Wompi/PSE en el código revisado. | La arquitectura implementada difiere de los diagramas propuestos. Explicar el motivo técnico o de alcance según la decisión real del equipo. No describir los diagramas iniciales como arquitectura desplegada. |
+| Funciones agrícolas | Se propone catálogo geolocalizado, publicación de cosechas y un módulo de inventario/fecha estimada de recolección. | Existe catálogo y publicación de productos con ubicación, existencias, pedido mínimo, temporada de cosecha y embalaje. | Parte de la propuesta se refleja en fichas y publicaciones. No afirmar que exista planificación de ciclos agrícolas o gestión avanzada de inventario; la evidencia de código revisada muestra campos y operaciones de publicaciones. |
+| Compra y pagos | Se propone compra directa y una pasarela para pagos móviles/transferencias mediante Wompi/PSE. | Se implementan solicitudes de cotización y gestión de estados. La aplicación informa que no procesa pagos y que comprador y productor acuerdan directamente el precio final, entrega y forma de pago. | El flujo real es de contacto/cotización, no de compra pagada dentro de la plataforma. La pasarela del Momento 1 debe presentarse como propuesta que no forma parte de la implementación actual. La razón de esta decisión debe completarla el equipo. |
+| Trazabilidad, formalización e informes | Se proponen trazabilidad, soportes de venta, formalización, reportes financieros e informes de impacto ODS 8. | No se verificaron módulos de trazabilidad, generación de soportes de venta o reportes financieros/ODS en el código revisado. | Estas funciones quedan como propuestas no verificadas/pendientes frente al alcance implementado. No atribuir impacto económico medido sin datos. |
+| ODS | La fundamentación relaciona la propuesta con metas 8.2, 8.3 y 8.8 y con modernización/productividad, formalización y derechos laborales. | El proyecto mantiene ODS 8 como marco y plantea visibilizar ofertas campesinas; no se aportaron mediciones de ventas, empleo, ingresos o condiciones laborales. | La relación se mantiene como propósito esperado. Las metas específicas y afirmaciones de la propuesta deben validarse con fuente oficial y separarse de resultados efectivamente medidos. |
 
-No inferir diferencias sin comparar con una copia verificable del Momento 1.
+### Texto base para documentar la evolución
+
+> En el Momento 1 se formuló AgroConecta ODS 8 como una plataforma modular de comercio directo campesino. La propuesta contemplaba catálogo geolocalizado, publicación de cosechas, compra directa con pagos digitales, trazabilidad, formalización y reportes, y se representó mediante diagramas conceptuales que mencionaban tecnologías e integraciones como Node.js/FastAPI, PostgreSQL, S3 y Wompi/PSE. En el Momento 2, el producto se identifica como AgroCórdoba y el código verificable implementa una aplicación React/TypeScript con backend Flask/SQLAlchemy, persistencia SQLite local y publicaciones y solicitudes de cotización. La aplicación no procesa pagos; el cierre comercial y la forma de pago se acuerdan entre comprador y productor. Por tanto, pagos digitales, trazabilidad y reportes financieros/ODS se mantienen como elementos propuestos en el Momento 1, pero no se deben presentar como implementados en la versión revisada. El equipo debe completar la justificación de los cambios de nombre, stack y alcance con las decisiones reales del proyecto; las capturas aportadas no documentan esas razones.
+
+**Nota de calidad de evidencia:** las imágenes compartidas sirven como referencia del Momento 1, pero no incluyen la bibliografía ni las páginas completas del informe. Las cifras sobre intermediación y las afirmaciones de impacto deben verificarse con fuentes antes de reproducirlas como hechos. Las imágenes de arquitectura del Momento 1 son propuestas, no capturas de la aplicación actual.
 
 ## 11. Pruebas, limitaciones y trabajo pendiente
 
@@ -120,5 +128,5 @@ Presentar conclusiones proporcionales a la evidencia disponible y listar fuentes
 - Verificar enlaces y paginación.
 - Incluir capturas reales y revisar que no revelen secretos ni datos personales.
 - Contrastar afirmaciones con el código y el estado del despliegue.
-- Comparar con el Momento 1 únicamente cuando se tenga la entrega previa.
+- Completar las razones reales de los cambios frente al Momento 1; las diferencias observables ya están resumidas en la sección 10.
 - Exportar a PDF y abrir el archivo para verificar legibilidad e integridad.

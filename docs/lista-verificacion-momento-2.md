@@ -19,11 +19,11 @@ Estados: **Listo** = existe evidencia revisada; **Parcial** = hay trabajo, pero 
 | Documentación técnica (frontend, backend, rutas, modelos, validaciones, errores y conexión) | Parcial | `docs/documentacion-tecnica.md` está publicada como borrador basado en el código. | Revisión técnica por el equipo; Ayanis debe hacer una contribución genuina y publicarla con su cuenta para evidenciar su participación. |
 | Manual de instalación y ejecución local | Listo como borrador | `docs/manual-instalacion.md` documenta Windows, frontend y backend. | Probarlo desde una copia limpia y registrar cualquier error encontrado. |
 | Estructura del informe final en PDF | Listo como plantilla | `docs/estructura-informe-final.md`. | Completar campos y evidencias y exportar/revisar el PDF final. El PDF aún no está preparado. |
-| Portada, tabla de contenido, descripción, ODS y tecnologías | Parcial | La plantilla incluye esas secciones. | Completar asignatura, docente, sede, fecha y referencias oficiales del ODS. |
+| Portada, tabla de contenido, descripción, ODS y tecnologías | Parcial | La plantilla incluye esas secciones y se completó con facultad, campus, asignatura, docente, integrantes y año según las imágenes del Momento 1. | Verificar que los datos académicos sigan siendo los correctos para Momento 2; agregar referencias oficiales del ODS. |
 | Capturas de pantalla | Pendiente | La plantilla enumera las capturas necesarias; no hay capturas de evidencia insertadas en el informe. | Capturar el sistema en ejecución y ocultar cualquier dato personal o secreto. |
 | Enlaces al repositorio y despliegue en el informe | Listo como plantilla | La plantilla contiene los enlaces al repositorio y Render. | Verificar que ambos estén accesibles al preparar el PDF. |
 | Base de datos incluida en el informe | Parcial | Los artefactos están publicados y la plantilla tiene una sección para describirlos. | Insertar la explicación y evidencia visual en el PDF final. |
-| Justificación de cambios respecto a Momento 1 | Pendiente | La plantilla incluye una tabla de comparación, pero no se encontró la entrega previa. | Aportar el documento/evidencia del Momento 1 y completar la comparación. |
+| Comparación y justificación de cambios respecto a Momento 1 | Parcial | Se compartieron imágenes del Momento 1 y la plantilla resume diferencias de nombre, alcance funcional y arquitectura, separando propuesta de implementación actual. | El equipo debe explicar las razones reales de los cambios de nombre, stack y alcance. Verificar con las páginas completas y fuentes originales las afirmaciones del Momento 1, incluido el porcentaje de intermediación. |
 | Correspondencia con todos los requisitos de la guía oficial | Pendiente de cotejo | La guía oficial no se encontró en el repositorio ni fue compartida en los archivos revisados. | Comparar esta lista con el documento oficial y añadir cualquier requisito que falte. |
 | Pruebas ejecutadas y resultados reportados | Pendiente de evidencia | Hay pruebas de backend en `backend/tests/`; no se afirma aquí que se hayan ejecutado. | Ejecutar las pruebas pertinentes y registrar resultado, comando y fecha. |
 
@@ -31,6 +31,6 @@ Estados: **Listo** = existe evidencia revisada; **Parcial** = hay trabajo, pero 
 
 1. Ayanis revisa `docs/documentacion-tecnica.md`, corrige o amplía lo que verifique y publica ese aporte desde su cuenta de GitHub.
 2. El equipo valida el manual desde una instalación limpia y ejecuta las pruebas que se vayan a reportar.
-3. Publicar y verificar los artefactos de `backend/database/`, asegurando que sean sintéticos y coherentes con los modelos.
-4. Reunir la guía oficial y la entrega del Momento 1 para cerrar el cotejo y la justificación de cambios.
+3. Revisar los artefactos publicados en `backend/database/`, asegurando que sigan siendo sintéticos y coherentes con los modelos.
+4. Completar la guía oficial y explicar las razones reales de los cambios respecto al Momento 1 usando las diferencias documentadas en la plantilla.
 5. Tomar capturas reales, completar la plantilla del informe, exportar el PDF y revisar el archivo final.
