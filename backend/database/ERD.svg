@@ -1,0 +1,158 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1500" height="1510" viewBox="0 0 1500 1510" role="img" aria-labelledby="title description">
+  <title id="title">Diagrama entidad-relación normalizado de AgroCórdoba</title>
+  <desc id="description">Diagrama de las once tablas SQLite normalizadas y sus claves y cardinalidades, alineado con backend/app.py.</desc>
+  <defs>
+    <style>
+      text { font-family: Arial, Helvetica, sans-serif; fill: #17324d; }
+      .heading { font-size: 27px; font-weight: 700; }
+      .subheading { font-size: 15px; fill: #496579; }
+      .table { fill: #ffffff; stroke: #24557a; stroke-width: 2; rx: 9; }
+      .tablehead { fill: #24557a; }
+      .tablename { fill: #ffffff; font-size: 16px; font-weight: 700; }
+      .field { font-size: 12px; }
+      .key { font-weight: 700; fill: #a54b16; }
+      .edge { fill: none; stroke: #68849b; stroke-width: 2; }
+      .edge-label { font-size: 11px; fill: #496579; }
+      .note { font-size: 12px; fill: #496579; }
+    </style>
+    <marker id="arrow" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto">
+      <path d="M0,0 L8,4 L0,8 z" fill="#68849b"/>
+    </marker>
+  </defs>
+  <rect width="1500" height="1510" fill="#f4f7fa"/>
+  <text x="36" y="44" class="heading">AgroCórdoba — Diagrama entidad-relación normalizado</text>
+  <text x="36" y="70" class="subheading">SQLite · modelos de backend/app.py · PK: clave primaria · FK: clave foránea · UK: valor único</text>
+
+  <g transform="translate(40 95)">
+    <rect class="table" width="440" height="340"/>
+    <path class="tablehead" d="M9 0h422a9 9 0 0 1 9 9v34H0V9a9 9 0 0 1 9-9z"/>
+    <text x="18" y="28" class="tablename">USER</text>
+    <text x="18" y="65" class="field"><tspan class="key">PK</tspan> id · google_sub (UK) · email (UK)</text>
+    <text x="18" y="86" class="field">name · avatar · role · city · business_type</text>
+    <text x="18" y="107" class="field">registered_at · password_hash · gender · phone</text>
+    <text x="18" y="128" class="field">farm_name · association · status</text>
+    <text x="18" y="164" class="field">Una cuenta puede ser cliente, productor o administrador.</text>
+  </g>
+
+  <g transform="translate(40 510)">
+    <rect class="table" width="440" height="150"/>
+    <path class="tablehead" d="M9 0h422a9 9 0 0 1 9 9v34H0V9a9 9 0 0 1 9-9z"/>
+    <text x="18" y="28" class="tablename">ACCOUNT_SETTINGS</text>
+    <text x="18" y="65" class="field"><tspan class="key">PK</tspan> id · <tspan class="key">FK, UK</tspan> user_id → USER.id</text>
+    <text x="18" y="86" class="field">notifications_enabled · quote_notifications</text>
+    <text x="18" y="107" class="field">response_notifications</text>
+  </g>
+
+  <g transform="translate(40 710)">
+    <rect class="table" width="440" height="125"/>
+    <path class="tablehead" d="M9 0h422a9 9 0 0 1 9 9v34H0V9a9 9 0 0 1 9-9z"/>
+    <text x="18" y="28" class="tablename">PRODUCER_PRODUCT</text>
+    <text x="18" y="65" class="field"><tspan class="key">PK</tspan> id · <tspan class="key">FK</tspan> user_id → USER.id · name</text>
+    <text x="18" y="86" class="field">Unique: (user_id, name)</text>
+  </g>
+
+  <g transform="translate(40 885)">
+    <rect class="table" width="440" height="160"/>
+    <path class="tablehead" d="M9 0h422a9 9 0 0 1 9 9v34H0V9a9 9 0 0 1 9-9z"/>
+    <text x="18" y="28" class="tablename">PASSWORD_RESET_VERIFICATION</text>
+    <text x="18" y="65" class="field"><tspan class="key">PK</tspan> id · <tspan class="key">FK, UK</tspan> user_id → USER.id</text>
+    <text x="18" y="86" class="field">code_hash · expires_at · sent_at · attempts</text>
+  </g>
+
+  <g transform="translate(40 1080)">
+    <rect class="table" width="440" height="190"/>
+    <path class="tablehead" d="M9 0h422a9 9 0 0 1 9 9v34H0V9a9 9 0 0 1 9-9z"/>
+    <text x="18" y="28" class="tablename">SETTINGS_VERIFICATION</text>
+    <text x="18" y="65" class="field"><tspan class="key">PK</tspan> id · <tspan class="key">FK, UK</tspan> user_id → USER.id</text>
+    <text x="18" y="86" class="field">code_hash · pending_email · pending_name · pending_phone</text>
+    <text x="18" y="107" class="field">pending_notifications_enabled</text>
+    <text x="18" y="128" class="field">pending_quote_notifications · pending_response_notifications</text>
+    <text x="18" y="149" class="field">expires_at · sent_at · attempts</text>
+  </g>
+
+  <g transform="translate(610 95)">
+    <rect class="table" width="520" height="445"/>
+    <path class="tablehead" d="M9 0h502a9 9 0 0 1 9 9v34H0V9a9 9 0 0 1 9-9z"/>
+    <text x="18" y="28" class="tablename">PRODUCT_LISTING</text>
+    <text x="18" y="65" class="field"><tspan class="key">PK</tspan> id · <tspan class="key">FK</tspan> producer_id → USER.id</text>
+    <text x="18" y="86" class="field">name · variety · category</text>
+    <text x="18" y="107" class="field">price_cop_kg · price_usd_kg · stock_available_kg</text>
+    <text x="18" y="128" class="field">stock_min_kg · min_order_kg · lat · lng</text>
+    <text x="18" y="149" class="field">municipality_id · municipality_name</text>
+    <text x="18" y="170" class="field">image · harvest_season · packaging · description</text>
+    <text x="18" y="191" class="field">featured · producer_experience_years · created_at</text>
+  </g>
+
+  <g transform="translate(1210 145)">
+    <rect class="table" width="250" height="145"/>
+    <path class="tablehead" d="M9 0h232a9 9 0 0 1 9 9v34H0V9a9 9 0 0 1 9-9z"/>
+    <text x="16" y="28" class="tablename">PRODUCT_CERTIFICATION</text>
+    <text x="16" y="65" class="field"><tspan class="key">PK</tspan> id · <tspan class="key">FK</tspan> product_id</text>
+    <text x="16" y="86" class="field">name</text>
+    <text x="16" y="107" class="field">Unique: (product_id, name)</text>
+  </g>
+
+  <g transform="translate(610 635)">
+    <rect class="table" width="520" height="565"/>
+    <path class="tablehead" d="M9 0h502a9 9 0 0 1 9 9v34H0V9a9 9 0 0 1 9-9z"/>
+    <text x="18" y="28" class="tablename">QUOTATION_RECORD</text>
+    <text x="18" y="65" class="field"><tspan class="key">PK</tspan> id · <tspan class="key">FK</tspan> client_id → USER.id</text>
+    <text x="18" y="86" class="field"><tspan class="key">FK</tspan> producer_id → USER.id</text>
+    <text x="18" y="107" class="field"><tspan class="key">FK nullable</tspan> product_listing_id → PRODUCT_LISTING.id</text>
+    <text x="18" y="128" class="field">product_id: historical listing identifier</text>
+    <text x="18" y="164" class="field">product_name · product_variety · producer_name</text>
+    <text x="18" y="185" class="field">producer_association · producer_whatsapp</text>
+    <text x="18" y="206" class="field">client_name · client_email · client_phone</text>
+    <text x="18" y="227" class="field">client_business_type · client_city</text>
+    <text x="18" y="263" class="field">quantity_kg · destination_zone · freight_cop</text>
+    <text x="18" y="284" class="field">subtotal_cop · total_cop · exchange_rate_cop</text>
+    <text x="18" y="305" class="field">discount_percent · notes · status · created_at</text>
+    <text x="18" y="341" class="field">Los valores de cliente/productor/producto conservan la</text>
+    <text x="18" y="362" class="field">información que se mostró cuando se creó la cotización.</text>
+  </g>
+
+  <g transform="translate(1210 440)">
+    <rect class="table" width="250" height="140"/>
+    <path class="tablehead" d="M9 0h232a9 9 0 0 1 9 9v34H0V9a9 9 0 0 1 9-9z"/>
+    <text x="16" y="28" class="tablename">FAVORITE</text>
+    <text x="16" y="65" class="field"><tspan class="key">PK</tspan> id · <tspan class="key">FK</tspan> user_id → USER.id</text>
+    <text x="16" y="86" class="field">product_id · Unique: (user_id, product_id)</text>
+  </g>
+
+  <g transform="translate(1210 760)">
+    <rect class="table" width="250" height="155"/>
+    <path class="tablehead" d="M9 0h232a9 9 0 0 1 9 9v34H0V9a9 9 0 0 1 9-9z"/>
+    <text x="16" y="28" class="tablename">READ_NOTIFICATION</text>
+    <text x="16" y="65" class="field"><tspan class="key">PK</tspan> id · <tspan class="key">FK</tspan> user_id → USER.id</text>
+    <text x="16" y="86" class="field"><tspan class="key">FK</tspan> quotation_id → QUOTATION_RECORD.id</text>
+    <text x="16" y="107" class="field">Unique: (user_id, quotation_id)</text>
+  </g>
+
+  <path class="edge" marker-end="url(#arrow)" d="M40 350 H20 V580 H40"/>
+  <text x="23" y="475" class="edge-label">1 : 0..1</text>
+  <path class="edge" marker-end="url(#arrow)" d="M40 320 H26 V770 H40"/>
+  <text x="29" y="690" class="edge-label">1 : N</text>
+  <path class="edge" marker-end="url(#arrow)" d="M40 290 H12 V950 H40"/>
+  <text x="15" y="870" class="edge-label">1 : 0..1</text>
+  <path class="edge" marker-end="url(#arrow)" d="M40 260 H6 V1150 H40"/>
+  <text x="9" y="1065" class="edge-label">1 : 0..1</text>
+  <path class="edge" marker-end="url(#arrow)" d="M480 360 H610"/>
+  <text x="515" y="350" class="edge-label">1 : N (productor)</text>
+  <path class="edge" marker-end="url(#arrow)" d="M1130 220 H1210"/>
+  <text x="1135" y="210" class="edge-label">1 : N</text>
+  <path class="edge" marker-end="url(#arrow)" d="M870 540 V635"/>
+  <text x="880" y="590" class="edge-label">0..1 : N</text>
+  <path class="edge" marker-end="url(#arrow)" d="M480 390 H565 V710 H610"/>
+  <text x="490" y="690" class="edge-label">1 : N (cliente)</text>
+  <path class="edge" marker-end="url(#arrow)" d="M480 405 H580 V750 H610"/>
+  <text x="490" y="770" class="edge-label">1 : N (productor)</text>
+  <path class="edge" marker-end="url(#arrow)" d="M480 420 H565 V600 H1185 V510 H1210"/>
+  <text x="830" y="590" class="edge-label">1 : N (favoritos)</text>
+  <path class="edge" marker-end="url(#arrow)" d="M480 415 H555 V1220 H1185 V835 H1210"/>
+  <text x="900" y="1210" class="edge-label">1 : N (lector)</text>
+  <path class="edge" marker-end="url(#arrow)" d="M1130 1000 H1210"/>
+  <text x="1135" y="990" class="edge-label">1 : N</text>
+
+  <text x="610" y="1260" class="note">Datos de muestra ficticios. La FK opcional permite conservar una cotización histórica</text>
+  <text x="610" y="1280" class="note">si el producto se elimina; los datos de lista y cotización se guardan en columnas tipadas.</text>
+</svg>

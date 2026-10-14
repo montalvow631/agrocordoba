@@ -1,0 +1,130 @@
+erDiagram
+    USER {
+        string id PK
+        string google_sub UK
+        string email UK
+        string name
+        string avatar
+        string role
+        string city
+        string business_type
+        datetime registered_at
+        string password_hash
+        string gender
+        string phone
+        string farm_name
+        string association
+        string status
+    }
+    ACCOUNT_SETTINGS {
+        int id PK
+        string user_id FK,UK
+        boolean notifications_enabled
+        boolean quote_notifications
+        boolean response_notifications
+    }
+    PRODUCER_PRODUCT {
+        int id PK
+        string user_id FK
+        string name
+    }
+    SETTINGS_VERIFICATION {
+        int id PK
+        string user_id FK,UK
+        string code_hash
+        string pending_email
+        string pending_name
+        string pending_phone
+        boolean pending_notifications_enabled
+        boolean pending_quote_notifications
+        boolean pending_response_notifications
+        datetime expires_at
+        datetime sent_at
+        int attempts
+    }
+    PASSWORD_RESET_VERIFICATION {
+        int id PK
+        string user_id FK,UK
+        string code_hash
+        datetime expires_at
+        datetime sent_at
+        int attempts
+    }
+    PRODUCT_LISTING {
+        string id PK
+        string producer_id FK
+        string name
+        string variety
+        string category
+        float price_cop_kg
+        float price_usd_kg
+        float stock_available_kg
+        float stock_min_kg
+        float min_order_kg
+        float lat
+        float lng
+        string municipality_id
+        string municipality_name
+        text image
+        string harvest_season
+        string packaging
+        string description
+        boolean featured
+        float producer_experience_years
+        datetime created_at
+    }
+    PRODUCT_CERTIFICATION {
+        int id PK
+        string product_id FK
+        string name
+    }
+    QUOTATION_RECORD {
+        string id PK
+        string client_id FK
+        string producer_id FK
+        string product_id "historical id"
+        string product_listing_id FK "nullable live reference"
+        string product_name
+        string product_variety
+        string producer_name
+        string producer_association
+        string producer_whatsapp
+        string client_name
+        string client_email
+        string client_phone
+        string client_business_type
+        string client_city
+        float quantity_kg
+        string destination_zone
+        float freight_cop
+        float subtotal_cop
+        float total_cop
+        float exchange_rate_cop
+        float discount_percent
+        string notes
+        string status
+        datetime created_at
+    }
+    FAVORITE {
+        int id PK
+        string user_id FK
+        string product_id
+    }
+    READ_NOTIFICATION {
+        int id PK
+        string user_id FK
+        string quotation_id FK
+    }
+
+    USER ||--o| ACCOUNT_SETTINGS : configures
+    USER ||--o{ PRODUCER_PRODUCT : offers
+    USER ||--o| SETTINGS_VERIFICATION : verifies
+    USER ||--o| PASSWORD_RESET_VERIFICATION : recovers
+    USER ||--o{ PRODUCT_LISTING : publishes
+    PRODUCT_LISTING ||--o{ PRODUCT_CERTIFICATION : has
+    USER ||--o{ QUOTATION_RECORD : requests_as_client
+    USER ||--o{ QUOTATION_RECORD : receives_as_producer
+    PRODUCT_LISTING o|--o{ QUOTATION_RECORD : referenced_by
+    USER ||--o{ FAVORITE : saves
+    USER ||--o{ READ_NOTIFICATION : reads
+    QUOTATION_RECORD ||--o{ READ_NOTIFICATION : is_read
