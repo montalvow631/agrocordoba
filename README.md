@@ -97,9 +97,8 @@ El proyecto incluye un esquema SQL, un diagrama entidad-relación y una base SQL
 
 Para consultar la documentación del backend, las rutas y las instrucciones adicionales, revisa [`backend/README.md`](backend/README.md).
 
-Documentación complementaria:
+## Documentación de Momento 2
 
-- [Documentación técnica](docs/documentacion-tecnica.md)
-- [Manual de instalación y ejecución local](docs/manual-instalacion.md)
-- [Estructura del informe final](docs/estructura-informe-final.md)
-- [Lista de verificación de Momento 2](docs/lista-verificacion-momento-2.md)
+El informe de trabajo en formato Word reúne la comparación con Momento 1, la documentación técnica, el manual de instalación, la lista de verificación y las imágenes de referencia compartidas: [`docs/Informe_AgroCordoba_Momento_2.docx`](docs/Informe_AgroCordoba_Momento_2.docx).
+
+El documento señala los elementos pendientes de validar o completar. No es una certificación de que todas las funciones o requisitos estén terminados.
