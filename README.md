@@ -81,6 +81,7 @@ El archivo de referencia es [`backend/.env.example`](backend/.env.example). Cóp
 | `RESEND_API_KEY`, `RESEND_FROM` | Opcionales; configuración de envío de correo mediante Resend. |
 | `SMTP_HOST`, `SMTP_PORT`, `SMTP_USERNAME`, `SMTP_PASSWORD`, `SMTP_FROM`, `SMTP_USE_TLS`, `SMTP_USE_SSL` | Opcionales; configuración alternativa de correo SMTP. |
 | `ADMIN_EMAIL`, `ADMIN_PASSWORD` | Opcionales; si se configuran juntas en el entorno del servicio, permiten crear una cuenta administradora al iniciar. No son necesarias para ejecutar localmente la aplicación básica. |
+| `FRONTEND_DIST_DIR` | Opcional; ruta de los archivos compilados del frontend en despliegues. |
 
 Google OAuth y el correo de recuperación o confirmación dependen de credenciales válidas de los respectivos proveedores. No se incluyen claves, contraseñas ni tokens en este repositorio.
 
@@ -95,3 +96,10 @@ El despliegue documentado utiliza SQLite en almacenamiento efímero; los datos p
 El proyecto incluye un esquema SQL, un diagrama entidad-relación y una base SQLite de muestra con registros ficticios en [`backend/database/`](backend/database/). La base de muestra no es un respaldo de producción ni contiene usuarios con contraseñas válidas.
 
 Para consultar la documentación del backend, las rutas y las instrucciones adicionales, revisa [`backend/README.md`](backend/README.md).
+
+Documentación complementaria:
+
+- [Documentación técnica](docs/documentacion-tecnica.md)
+- [Manual de instalación y ejecución local](docs/manual-instalacion.md)
+- [Estructura del informe final](docs/estructura-informe-final.md)
+- [Lista de verificación de Momento 2](docs/lista-verificacion-momento-2.md)
