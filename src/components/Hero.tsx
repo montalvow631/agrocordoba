@@ -8,10 +8,9 @@ interface HeroProps {
 }
 
 const HERO_FIELDS = [
-  { src: '/images/field-aerial-1.webp', label: 'Cultivo en hileras visto desde el aire' },
-  { src: '/images/field-aerial-2.webp', label: 'Cultivo verde visto desde el aire' },
-  { src: '/images/field-maize.webp', label: 'Cosecha de maíz al atardecer' },
-  { src: '/images/field-aerial-3.webp', label: 'Surcos agrícolas vistos desde un dron' },
+  { src: '/images/portada-campo-atardecer.png', label: 'Cultivo al atardecer' },
+  { src: '/images/portada-productor.png', label: 'Productor trabajando en el campo' },
+  { src: '/images/field-maize.webp', label: 'Cultivo de maíz al atardecer' },
 ];
 
 export const Hero: React.FC<HeroProps> = ({

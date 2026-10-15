@@ -21,6 +21,8 @@ const LEGACY_DEMO_IMAGE_IDS: Record<string, string> = {
   'prod-2': 'photo-1590165482129-1b8b27698780',
   'prod-3': 'photo-1549007994-cb92caebd54b',
   'prod-4': 'photo-1596040033229-a9821ebd058d',
+  'prod-10': 'photo-1509440159596-0249088772ff',
+  'prod-11': 'photo-1587049352846-4a222e784d38',
 };
 
 const getProductIdFromPath = (pathname: string): string | null => {
