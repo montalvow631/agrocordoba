@@ -62,6 +62,8 @@ El dominio remitente debe estar verificado en el proveedor. No compartas ni suba
 
 Para habilitar recuperación de contraseñas en Render, configura `RESEND_API_KEY` y `RESEND_FROM` en las variables privadas del servicio. Por ejemplo, el remitente puede tener la forma `AgroCórdoba <no-reply@tu-dominio.com>`, pero el dominio debe estar verificado en Resend. El backend envía el correo por HTTPS. No uses una clave de ejemplo ni publiques la clave real.
 
+La recuperación solicita un código de seis dígitos, válido durante 10 minutos. Solo se permite pedir otro código después de 60 segundos; hay hasta cinco intentos de verificación. La contraseña nueva debe tener entre 8 y 256 caracteres. El formulario y la API rechazan códigos con formato inválido; si el correo no se puede enviar, la API informa el error y no crea una verificación utilizable.
+
 ## Google OAuth
 
 El código OAuth ya está integrado, pero necesita un cliente OAuth de Google:

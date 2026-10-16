@@ -951,6 +951,8 @@ def reset_password_with_code():
     email = str(payload.get("email", "")).strip().lower()
     code = str(payload.get("code", "")).strip()
     password = str(payload.get("password", ""))
+    if not re.fullmatch(r"\d{6}", code):
+        return jsonify({"error": "El código debe tener seis dígitos."}), 400
     if len(password) < 8 or len(password) > 256:
         return jsonify({"error": "La contrasena nueva debe tener entre 8 y 256 caracteres."}), 400
 

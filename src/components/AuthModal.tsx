@@ -317,11 +317,12 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: normalizedEmail }),
       });
-      const result = await response.json();
-      if (!response.ok) throw new Error(result.error || 'No se pudo enviar el c&oacute;digo.');
+      const result = await response.json().catch(() => null);
+      if (!result) throw new Error('El servidor no devolvió una respuesta válida.');
+      if (!response.ok) throw new Error(result.error || 'No se pudo enviar el código.');
       setRecoveryEmail(normalizedEmail);
       setRecoveryRequested(true);
-      setRecoveryMessage(result.message || 'Revisa tu correo para encontrar el c&oacute;digo.');
+      setRecoveryMessage(result.message || 'Revisa tu correo para encontrar el código.');
     } catch (error) {
       setRecoveryError(error instanceof Error ? error.message : 'No se pudo conectar con el servidor.');
     } finally {
@@ -332,8 +333,12 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   const handleVerifyRecovery = async (event: React.FormEvent) => {
     event.preventDefault();
     setRecoveryError('');
+    if (!/^\d{6}$/.test(recoveryCode)) {
+      setRecoveryError('El código debe tener seis dígitos.');
+      return;
+    }
     if (recoveryPassword.length < 8) {
-      setRecoveryError('La contrasena nueva debe tener al menos 8 caracteres.');
+      setRecoveryError('La contraseña nueva debe tener al menos 8 caracteres.');
       return;
     }
     setIsLoading(true);
@@ -343,14 +348,17 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: normalizeEmail(recoveryEmail), code: recoveryCode, password: recoveryPassword }),
       });
-      const result = await response.json();
-      if (!response.ok) throw new Error(result.error || 'No se pudo cambiar la contrasena.');
+      const result = await response.json().catch(() => null);
+      if (!result) throw new Error('El servidor no devolvió una respuesta válida.');
+      if (!response.ok) throw new Error(result.error || 'No se pudo cambiar la contraseña.');
       setRecoveryOpen(false);
       setRecoveryRequested(false);
+      setRecoveryCode('');
+      setRecoveryPassword('');
       setRecoveryMessage('');
       setEmail(recoveryEmail);
       setPassword(recoveryPassword);
-      setLoginSuccess(result.message || 'Contrasena actualizada. Ya puedes iniciar sesion.');
+      setLoginSuccess(result.message || 'Contraseña actualizada. Ya puedes iniciar sesión.');
     } catch (error) {
       setRecoveryError(error instanceof Error ? error.message : 'No se pudo conectar con el servidor.');
     } finally {
@@ -1189,14 +1197,14 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                               <h2 className="font-bold text-green-950">Recupera tu contrase&ntilde;a</h2>
                               <p className="mt-1 text-sm text-slate-600">Te enviaremos un c&oacute;digo de verificaci&oacute;n a tu correo.</p>
                             </div>
-                            <button type="button" onClick={() => { setRecoveryOpen(false); setRecoveryError(''); }} className="text-sm font-semibold text-green-800 hover:text-green-950">Volver</button>
+                            <button type="button" onClick={() => { setRecoveryOpen(false); setRecoveryRequested(false); setRecoveryCode(''); setRecoveryPassword(''); setRecoveryError(''); setRecoveryMessage(''); }} className="text-sm font-semibold text-green-800 hover:text-green-950">Volver</button>
                           </div>
                           <label className="mb-1 block text-sm font-semibold text-slate-700">Correo electr&oacute;nico</label>
-                          <input type="email" required value={recoveryEmail} onChange={(event) => setRecoveryEmail(event.target.value)} className="mb-3 h-12 w-full rounded-xl border border-slate-200 bg-white px-4" placeholder="tucorreo@ejemplo.com" />
+                          <input type="email" required readOnly={recoveryRequested} value={recoveryEmail} onChange={(event) => setRecoveryEmail(event.target.value)} className="mb-3 h-12 w-full rounded-xl border border-slate-200 bg-white px-4 read-only:bg-slate-100" placeholder="tucorreo@ejemplo.com" />
                           {recoveryRequested && (
                             <>
                               <label className="mb-1 block text-sm font-semibold text-slate-700">C&oacute;digo de seis d&iacute;gitos</label>
-                              <input inputMode="numeric" autoComplete="one-time-code" maxLength={6} required value={recoveryCode} onChange={(event) => setRecoveryCode(event.target.value.replace(/\D/g, ''))} className="mb-3 h-12 w-full rounded-xl border border-slate-200 bg-white px-4" placeholder="000000" />
+                              <input inputMode="numeric" autoComplete="one-time-code" minLength={6} maxLength={6} pattern="\d{6}" required value={recoveryCode} onChange={(event) => setRecoveryCode(event.target.value.replace(/\D/g, ''))} className="mb-3 h-12 w-full rounded-xl border border-slate-200 bg-white px-4" placeholder="000000" />
                               <label className="mb-1 block text-sm font-semibold text-slate-700">Nueva contrase&ntilde;a</label>
                               <input type="password" required minLength={8} value={recoveryPassword} onChange={(event) => setRecoveryPassword(event.target.value)} className="mb-3 h-12 w-full rounded-xl border border-slate-200 bg-white px-4" placeholder="Al menos 8 caracteres" />
                             </>
@@ -1204,7 +1212,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                           {recoveryError && <p role="alert" className="mb-3 rounded-lg bg-red-50 p-3 text-sm text-red-700">{recoveryError}</p>}
                           {recoveryMessage && <p role="status" className="mb-3 rounded-lg bg-white p-3 text-sm text-green-800">{recoveryMessage}</p>}
                           <button type="submit" disabled={isLoading} className="w-full rounded-xl bg-green-800 px-4 py-3 font-semibold text-white hover:bg-green-900 disabled:opacity-60">
-                            {isLoading ? 'Procesando...' : recoveryRequested ? 'Cambiar contrasena' : 'Enviar codigo'}
+                            {isLoading ? 'Procesando...' : recoveryRequested ? 'Cambiar contraseña' : 'Enviar código'}
                           </button>
                         </form>
                       )}

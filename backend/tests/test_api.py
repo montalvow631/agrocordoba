@@ -662,8 +662,29 @@ def test_resend_email_sender_uses_https_api_when_configured(monkeypatch):
     backend._send_settings_code(user, "123456")
 
     assert called["url"] == "https://api.resend.com/emails"
+    assert called["headers"]["Authorization"] == "Bearer test-key-only"
     assert called["json"]["to"] == [user.email]
     assert "123456" in called["json"]["text"]
+
+
+def test_password_recovery_rejects_malformed_codes_without_consuming_attempts(client, monkeypatch):
+    user = create_user(
+        google_sub="malformed-password-reset-user",
+        email="malformed-reset@example.com",
+    )
+    monkeypatch.setattr("app._send_password_reset_code", lambda account, code: None)
+    client.post("/api/auth/password/request-code", json={"email": user.email})
+    challenge = PasswordResetVerification.query.filter_by(user_id=user.id).first()
+    assert challenge is not None
+
+    response = client.post(
+        "/api/auth/password/verify-code",
+        json={"email": user.email, "code": "123", "password": "new-password-456"},
+    )
+
+    assert response.status_code == 400
+    assert response.get_json()["error"] == "El código debe tener seis dígitos."
+    assert challenge.attempts == 0
 
 
 def test_google_login_explains_when_oauth_credentials_are_missing(client, monkeypatch):
