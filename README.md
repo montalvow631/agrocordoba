@@ -34,7 +34,7 @@ Por tanto, el despliegue sirve como demostración del proyecto, pero no se debe 
 
 - **Frontend:** React 19, TypeScript, Vite 6, Tailwind CSS 4, Leaflet y React Leaflet.
 - **Backend:** Python 3.13, Flask, Flask-SQLAlchemy y SQLAlchemy.
-- **Base de datos:** SQLite por defecto en desarrollo; el backend también admite PostgreSQL y MySQL mediante `DATABASE_URL`.
+- **Base de datos utilizada actualmente:** SQLite. En desarrollo se guarda en un archivo local y el despliegue actual de Render también utiliza SQLite, con almacenamiento efímero. El backend admite PostgreSQL y MySQL mediante `DATABASE_URL`, pero no están configurados en el despliegue actual.
 - **Autenticación:** sesiones Flask con correo y contraseña; Google OAuth opcional.
 
 ## Requisitos
@@ -109,7 +109,7 @@ El despliegue actual utiliza SQLite en almacenamiento efímero; los datos pueden
 
 ## Base de datos de ejemplo
 
-El proyecto incluye un esquema SQL, un diagrama entidad-relación y una base SQLite de muestra con registros ficticios en [`backend/database/`](backend/database/). La base de muestra no es un respaldo de producción ni contiene usuarios con contraseñas válidas.
+El proyecto utiliza SQLite y contiene un esquema SQL, un diagrama entidad-relación y una base SQLite de muestra con registros ficticios en [`backend/database/`](backend/database/). El archivo `agrocordoba_sample.db` permite inspeccionar las tablas con una herramienta compatible con SQLite, como DB Browser for SQLite. La base de muestra no es un respaldo de producción ni contiene usuarios con contraseñas válidas; no debe confundirse con una base persistente de Render.
 
 Para consultar la documentación del backend, las rutas y las instrucciones adicionales, revisa [`backend/README.md`](backend/README.md).
 
