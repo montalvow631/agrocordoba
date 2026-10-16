@@ -8,7 +8,22 @@
 
 AgroCórdoba es una plataforma web que conecta a compradores con productores campesinos del departamento de Córdoba. Permite explorar productos agrícolas y municipios, y ofrece flujos de registro, publicaciones de cosechas y solicitudes de cotización. Las cuentas reales y las funciones conectadas guardan sus datos en el backend; el proyecto también incluye productos y accesos de demostración locales, que no representan ventas ni usuarios reales.
 
-La plataforma no procesa pagos. Google OAuth y el envío de códigos por correo requieren configuración de servicios externos y no están habilitados automáticamente en una instalación local.
+La plataforma no procesa pagos. Los datos de demostración no representan usuarios ni ventas reales. El backend dispone de rutas para cuentas, cosechas y cotizaciones, pero la disponibilidad de funciones depende de la configuración del despliegue.
+
+## Estado actual del proyecto
+
+El sitio está publicado y permite revisar la interfaz y el catálogo de demostración. Esto no significa que todas las funciones de producción estén configuradas:
+
+| Elemento | Estado |
+|---|---|
+| Sitio web y contenido visual | Publicados en Render. |
+| Backend y rutas de la aplicación | Incluidos en el proyecto. |
+| Base de datos del despliegue | SQLite en almacenamiento efímero de Render; los registros pueden perderse al reiniciar o desplegar. No usar para conservar datos reales. |
+| Inicio de sesión con Google | El código está incluido, pero faltan las credenciales y la configuración de Google Cloud. |
+| Recuperación de contraseña por correo | El código está incluido, pero falta configurar y probar un proveedor de correo y un remitente válido. |
+| Persistencia de cuentas, publicaciones y cotizaciones | Pendiente configurar y verificar una base de datos persistente. |
+
+Por tanto, el despliegue sirve como demostración del proyecto, pero no se debe presentar como un servicio con cuentas persistentes, inicio de Google o recuperación por correo ya operativos.
 
 ## Integrantes
 
@@ -87,9 +102,10 @@ Google OAuth y el correo de recuperación o confirmación dependen de credencial
 
 ## Despliegue
 
-El proyecto está publicado en Render: **[https://agrocordoba.onrender.com/](https://agrocordoba.onrender.com/)**.
+- **Repositorio:** [https://github.com/montalvow631/agrocordoba](https://github.com/montalvow631/agrocordoba)
+- **Sitio publicado:** [https://agrocordoba.onrender.com/](https://agrocordoba.onrender.com/)
 
-El despliegue documentado utiliza SQLite en almacenamiento efímero; los datos pueden perderse al reiniciar o volver a desplegar. No debe considerarse almacenamiento persistente para datos reales.
+El despliegue actual utiliza SQLite en almacenamiento efímero; los datos pueden perderse al reiniciar o volver a desplegar. No debe considerarse almacenamiento persistente para datos reales. Google OAuth y el envío de correos no están configurados en el despliegue actual.
 
 ## Base de datos de ejemplo
 
