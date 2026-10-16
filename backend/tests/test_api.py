@@ -2,17 +2,27 @@ from datetime import datetime, timezone
 import json
 import re
 
+from flask import redirect
+
 from app import (
+    AccountSettings,
     Favorite,
     PasswordResetVerification,
+    ProductCertification,
+    ProducerProduct,
     ProductListing,
     QuotationRecord,
     ReadNotification,
     SettingsVerification,
     User,
+    app as flask_app,
+    _apply_product_fields,
+    _migrate_normalized_tables,
     _product_payload,
     db,
+    google,
 )
+from sqlalchemy import inspect, text
 
 
 def create_user(**overrides):
@@ -94,6 +104,33 @@ def test_local_registration_returns_the_created_user(client):
     assert User.query.filter_by(email="compradora@example.com").first() is not None
 
 
+def test_producer_registration_stores_products_as_rows(client):
+    response = client.post(
+        "/api/auth/register",
+        json={
+            "name": "Productora de prueba",
+            "email": "productora@example.com",
+            "password": "StrongPass123",
+            "gender": "femenino",
+            "phone": "3001234567",
+            "city": "Montería",
+            "role": "productor",
+            "farmName": "Finca de prueba",
+            "association": "Asociación de prueba",
+            "products": ["Yuca", "Ñame", "Yuca"],
+        },
+    )
+
+    assert response.status_code == 201
+    user = User.query.filter_by(email="productora@example.com").first()
+    assert user is not None
+    assert response.get_json()["user"]["products"] == ["Yuca", "Ñame"]
+    assert [item.name for item in ProducerProduct.query.filter_by(user_id=user.id).order_by(ProducerProduct.id)] == [
+        "Yuca",
+        "Ñame",
+    ]
+
+
 def test_local_registration_rejects_duplicate_email_with_json(client):
     create_user()
 
@@ -173,6 +210,29 @@ def product_payload(**overrides):
     return values
 
 
+def create_listing(producer, payload=None):
+    listing = ProductListing(producer_id=producer.id)
+    _apply_product_fields(listing, payload or product_payload())
+    db.session.add(listing)
+    db.session.flush()
+    return listing
+
+
+def create_quotation(client_id, producer_id, product_id="reference-product", **overrides):
+    values = {
+        "client_id": client_id,
+        "producer_id": producer_id,
+        "product_id": product_id,
+        "product_name": "Yuca",
+        "client_name": "Comprador",
+    }
+    values.update(overrides)
+    quotation = QuotationRecord(**values)
+    db.session.add(quotation)
+    db.session.flush()
+    return quotation
+
+
 def test_product_validation_accepts_cordoba_negative_longitude():
     valid, error = _product_payload(product_payload())
 
@@ -189,10 +249,17 @@ def test_active_producer_can_publish_product_with_negative_longitude(client):
     )
     login_as(client, producer)
 
-    response = client.post("/api/products", json=product_payload())
+    response = client.post(
+        "/api/products",
+        json=product_payload(certifications=["Orgánica", "Comercio justo"]),
+    )
 
     assert response.status_code == 201
-    assert response.get_json()["product"]["lng"] == -75.88
+    payload = response.get_json()["product"]
+    assert payload["lng"] == -75.88
+    assert payload["certifications"] == ["Orgánica", "Comercio justo"]
+    assert ProductCertification.query.count() == 2
+    assert "data" not in {column["name"] for column in inspect(db.engine).get_columns("product_listing")}
 
 
 def test_product_page_includes_server_rendered_metadata_and_schema(client, tmp_path, monkeypatch):
@@ -202,9 +269,9 @@ def test_product_page_includes_server_rendered_metadata_and_schema(client, tmp_p
         role="productor",
         status="activo",
     )
-    listing = ProductListing(
-        producer_id=producer.id,
-        data=product_payload(
+    listing = create_listing(
+        producer,
+        product_payload(
             name="Ñame espino",
             description="Ñame fresco de Córdoba.",
             image="/images/name-real.jpg",
@@ -253,11 +320,7 @@ def test_sitemap_lists_active_public_product_pages(client):
         role="productor",
         status="activo",
     )
-    listing = ProductListing(
-        producer_id=producer.id,
-        data=product_payload(name="Ñame espino"),
-    )
-    db.session.add(listing)
+    listing = create_listing(producer, product_payload(name="Ñame espino"))
     db.session.commit()
 
     response = client.get("/sitemap.xml")
@@ -280,14 +343,11 @@ def test_admin_can_list_quotes_and_edit_products(client):
         email="admin@example.com",
         role="admin",
     )
-    listing = ProductListing(producer_id=producer.id, data=product_payload())
-    quote = QuotationRecord(
+    listing = create_listing(producer)
+    quote = create_quotation(
         client_id=create_user(google_sub="buyer-for-quote", email="buyer-quote@example.com").id,
         producer_id=producer.id,
-        product_id="reference-product",
-        data={"productName": "Yuca", "clientName": "Comprador"},
     )
-    db.session.add_all([listing, quote])
     db.session.commit()
     login_as(client, admin)
 
@@ -339,13 +399,7 @@ def test_read_notifications_only_include_buyers_own_quotes(client):
     first = create_user(google_sub="notify-buyer-1", email="notify-one@example.com")
     second = create_user(google_sub="notify-buyer-2", email="notify-two@example.com")
     producer = create_user(google_sub="notify-producer", email="notify-producer@example.com", role="productor")
-    quote = QuotationRecord(
-        client_id=first.id,
-        producer_id=producer.id,
-        product_id="prod-1",
-        data={"productName": "Yuca"},
-    )
-    db.session.add(quote)
+    quote = create_quotation(first.id, producer.id, product_id="prod-1")
     db.session.commit()
     login_as(client, second)
 
@@ -354,6 +408,158 @@ def test_read_notifications_only_include_buyers_own_quotes(client):
     assert response.status_code == 200
     assert response.get_json()["quotationIds"] == []
     assert ReadNotification.query.count() == 0
+
+
+def test_quotation_fields_are_relational_and_survive_product_deletion(client):
+    producer = create_user(
+        google_sub="quote-producer",
+        email="quote-producer@example.com",
+        role="productor",
+        status="activo",
+        phone="3001234567",
+        association="Asociación de prueba",
+    )
+    buyer = create_user(
+        google_sub="quote-buyer",
+        email="quote-buyer@example.com",
+        phone="3007654321",
+        business_type="Restaurante",
+    )
+    listing = create_listing(producer)
+    db.session.commit()
+    login_as(client, buyer)
+
+    response = client.post(
+        "/api/quotations",
+        json={
+            "productId": listing.id,
+            "quantityKg": 50,
+            "freightCop": 1000,
+            "destinationZone": "Local Córdoba",
+            "notes": "Entrega de ejemplo",
+        },
+    )
+
+    assert response.status_code == 201
+    quote_data = response.get_json()["quotation"]
+    quote = db.session.get(QuotationRecord, quote_data["id"])
+    assert quote is not None
+    assert quote.product_listing_id == listing.id
+    assert quote.total_cop == 126000
+    assert quote_data["productId"] == listing.id
+    assert quote_data["totalUsd"] == 126000 / 4150
+    assert "data" not in {column["name"] for column in inspect(db.engine).get_columns("quotation_record")}
+
+    login_as(client, producer)
+    deleted = client.delete(f"/api/products/{listing.id}")
+
+    assert deleted.status_code == 200
+    db.session.expire(quote)
+    assert quote.product_listing_id is None
+    assert client.get("/api/quotations").get_json()["quotations"][0]["productName"] == "Yuca"
+
+
+def test_legacy_json_columns_are_migrated_without_losing_values(client):
+    producer = create_user(
+        google_sub="legacy-producer",
+        email="legacy-producer@example.com",
+        role="productor",
+    )
+    buyer = create_user(
+        google_sub="legacy-buyer",
+        email="legacy-buyer@example.com",
+    )
+    listing = create_listing(producer)
+    quote = create_quotation(buyer.id, producer.id, listing.id)
+    challenge = SettingsVerification(
+        user_id=buyer.id,
+        code_hash="legacy-hash",
+        expires_at=datetime(2026, 1, 2, tzinfo=timezone.utc),
+        sent_at=datetime(2026, 1, 2, tzinfo=timezone.utc),
+    )
+    settings = AccountSettings(user_id=buyer.id)
+    db.session.add_all([challenge, settings])
+    db.session.commit()
+
+    for statement in (
+        'ALTER TABLE "user" ADD COLUMN producer_products JSON',
+        "ALTER TABLE product_listing ADD COLUMN data JSON",
+        "ALTER TABLE quotation_record ADD COLUMN data JSON",
+        "ALTER TABLE settings_verification ADD COLUMN pending_changes JSON",
+        "ALTER TABLE account_settings ADD COLUMN phone VARCHAR(30) NOT NULL DEFAULT ''",
+    ):
+        db.session.execute(text(statement))
+    db.session.execute(
+        text('UPDATE "user" SET producer_products = :products WHERE id = :id'),
+        {"products": '["Yuca", "Ñame"]', "id": producer.id},
+    )
+    db.session.execute(
+        text("UPDATE product_listing SET data = :data WHERE id = :id"),
+        {
+            "data": json.dumps(product_payload(name="Yuca migrada", certifications=["Orgánica"])),
+            "id": listing.id,
+        },
+    )
+    db.session.execute(
+        text("UPDATE quotation_record SET data = :data WHERE id = :id"),
+        {
+            "data": json.dumps({"productName": "Yuca migrada", "clientName": "Cliente anterior", "totalCop": 5000}),
+            "id": quote.id,
+        },
+    )
+    db.session.execute(
+        text("UPDATE settings_verification SET pending_changes = :changes WHERE id = :id"),
+        {
+            "changes": json.dumps(
+                {
+                    "name": "Nombre migrado",
+                    "notifications": {
+                        "notificationsEnabled": True,
+                        "quoteNotifications": False,
+                        "responseNotifications": True,
+                    },
+                }
+            ),
+            "id": challenge.id,
+        },
+    )
+    db.session.execute(
+        text("UPDATE account_settings SET phone = :phone WHERE user_id = :user_id"),
+        {"phone": "3009998877", "user_id": buyer.id},
+    )
+    db.session.commit()
+
+    _migrate_normalized_tables()
+    db.session.expire_all()
+
+    assert [item.name for item in ProducerProduct.query.filter_by(user_id=producer.id).order_by(ProducerProduct.id)] == [
+        "Yuca",
+        "Ñame",
+    ]
+    migrated_listing = db.session.get(ProductListing, listing.id)
+    assert migrated_listing.name == "Yuca migrada"
+    assert [item.name for item in migrated_listing.certifications] == ["Orgánica"]
+    migrated_quote = db.session.get(QuotationRecord, quote.id)
+    assert migrated_quote.product_name == "Yuca migrada"
+    assert migrated_quote.total_cop == 5000
+    assert buyer.phone == "3009998877"
+    migrated_challenge = SettingsVerification.query.filter_by(user_id=buyer.id).first()
+    assert migrated_challenge.pending_name == "Nombre migrado"
+    assert migrated_challenge.pending_notifications_enabled is True
+    assert migrated_challenge.pending_quote_notifications is False
+    assert migrated_challenge.pending_response_notifications is True
+    assert all(
+        legacy_column not in {
+            column["name"] for column in inspect(db.engine).get_columns(table_name)
+        }
+        for table_name, legacy_column in (
+            ("user", "producer_products"),
+            ("product_listing", "data"),
+            ("quotation_record", "data"),
+            ("settings_verification", "pending_changes"),
+            ("account_settings", "phone"),
+        )
+    )
 
 
 def test_profile_photo_is_persisted_and_rejects_invalid_data(client):
@@ -378,11 +584,37 @@ def test_account_settings_requests_a_code_through_mail_sender(client, monkeypatc
     sent = []
     monkeypatch.setattr("app._send_settings_code", lambda account, code: sent.append((account.id, code)))
 
-    response = client.post("/api/account/settings/request-code", json={"name": "Nuevo Nombre"})
+    response = client.post(
+        "/api/account/settings/request-code",
+        json={
+            "name": "Nuevo Nombre",
+            "notifications": {
+                "notificationsEnabled": True,
+                "quoteNotifications": False,
+                "responseNotifications": True,
+            },
+        },
+    )
 
     assert response.status_code == 200
     assert sent and sent[0][0] == user.id
-    assert SettingsVerification.query.filter_by(user_id=user.id).first() is not None
+    challenge = SettingsVerification.query.filter_by(user_id=user.id).first()
+    assert challenge is not None
+    assert challenge.pending_name == "Nuevo Nombre"
+    assert challenge.pending_notifications_enabled is True
+    assert challenge.pending_quote_notifications is False
+    assert challenge.pending_response_notifications is True
+    assert "pending_changes" not in {
+        column["name"] for column in inspect(db.engine).get_columns("settings_verification")
+    }
+    verified = client.post(
+        "/api/account/settings/verify-code",
+        json={"code": sent[0][1]},
+    )
+    assert verified.status_code == 200
+    assert verified.get_json()["user"]["name"] == "Nuevo Nombre"
+    assert verified.get_json()["notifications"]["quoteNotifications"] is False
+    assert SettingsVerification.query.count() == 0
 
 
 def test_password_recovery_verifies_code_and_changes_password(client, monkeypatch):
@@ -445,6 +677,43 @@ def test_google_login_explains_when_oauth_credentials_are_missing(client, monkey
     assert response.headers["Location"].startswith("http://localhost:3000/?google_login=setup")
 
 
+def test_google_login_uses_render_url_when_oauth_is_not_configured(client, monkeypatch):
+    monkeypatch.delenv("GOOGLE_CLIENT_ID", raising=False)
+    monkeypatch.delenv("GOOGLE_CLIENT_SECRET", raising=False)
+    monkeypatch.delenv("FRONTEND_URL", raising=False)
+    monkeypatch.setenv("RENDER_EXTERNAL_URL", "https://agrocordoba.onrender.com")
+
+    response = client.get("/auth/google")
+
+    assert response.status_code == 302
+    assert response.headers["Location"] == (
+        "https://agrocordoba.onrender.com/?google_login=setup"
+    )
+
+
+def test_google_login_uses_render_callback_when_redirect_uri_is_not_configured(
+    client, monkeypatch
+):
+    monkeypatch.setenv("GOOGLE_CLIENT_ID", "test-client-id")
+    monkeypatch.setenv("GOOGLE_CLIENT_SECRET", "test-client-secret")
+    monkeypatch.delenv("GOOGLE_REDIRECT_URI", raising=False)
+    monkeypatch.setenv("RENDER_EXTERNAL_URL", "https://agrocordoba.onrender.com/")
+    requested_redirect_uris = []
+
+    def authorize_redirect(redirect_uri):
+        requested_redirect_uris.append(redirect_uri)
+        return redirect(redirect_uri)
+
+    monkeypatch.setattr(google, "authorize_redirect", authorize_redirect)
+
+    response = client.get("/auth/google")
+
+    assert response.status_code == 302
+    assert requested_redirect_uris == [
+        "https://agrocordoba.onrender.com/auth/google/callback"
+    ]
+
+
 def test_admin_can_edit_and_delete_a_user_with_related_records(client):
     admin = create_user(google_sub="admin-edit-sub", email="admin-edit@example.com", role="admin")
     producer = create_user(
@@ -454,14 +723,14 @@ def test_admin_can_edit_and_delete_a_user_with_related_records(client):
         status="activo",
     )
     buyer = create_user(google_sub="buyer-delete-sub", email="buyer-delete@example.com")
-    listing = ProductListing(producer_id=producer.id, data=product_payload())
-    quote = QuotationRecord(
-        client_id=buyer.id,
-        producer_id=producer.id,
+    listing = create_listing(producer)
+    quote = create_quotation(
+        buyer.id,
+        producer.id,
         product_id="prod-to-delete",
-        data={"productName": "Yuca"},
+        product_listing_id=listing.id,
     )
-    db.session.add_all([listing, quote, Favorite(user_id=buyer.id, product_id="prod-to-delete")])
+    db.session.add(Favorite(user_id=buyer.id, product_id="prod-to-delete"))
     db.session.commit()
     login_as(client, admin)
 

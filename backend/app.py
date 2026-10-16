@@ -70,7 +70,6 @@ class User(db.Model):
     phone = db.Column(db.String(30), nullable=False, default="")
     farm_name = db.Column(db.String(160), nullable=False, default="")
     association = db.Column(db.String(200), nullable=False, default="")
-    producer_products = db.Column(db.JSON, nullable=False, default=list)
     status = db.Column(db.String(20), nullable=False, default="activo")
 
     def to_public_dict(self):
@@ -79,7 +78,7 @@ class User(db.Model):
             "id": self.id,
             "name": self.name,
             "email": self.email,
-            "phone": self.phone or (settings.phone if settings else ""),
+            "phone": self.phone,
             "avatar": self.avatar,
             "businessType": self.business_type,
             "city": self.city,
@@ -90,14 +89,23 @@ class User(db.Model):
             "gender": self.gender,
             "farmName": self.farm_name,
             "association": self.association,
-            "products": self.producer_products or [],
+            "products": [
+                item.name
+                for item in ProducerProduct.query.filter_by(user_id=self.id).order_by(ProducerProduct.id).all()
+            ],
         }
+
+
+class ProducerProduct(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.String(36), db.ForeignKey("user.id"), nullable=False, index=True)
+    name = db.Column(db.String(100), nullable=False)
+    __table_args__ = (db.UniqueConstraint("user_id", "name", name="uq_producer_product_name"),)
 
 
 class AccountSettings(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.String(36), db.ForeignKey("user.id"), unique=True, nullable=False)
-    phone = db.Column(db.String(30), nullable=False, default="")
     notifications_enabled = db.Column(db.Boolean, nullable=False, default=True)
     quote_notifications = db.Column(db.Boolean, nullable=False, default=True)
     response_notifications = db.Column(db.Boolean, nullable=False, default=True)
@@ -107,7 +115,12 @@ class SettingsVerification(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.String(36), db.ForeignKey("user.id"), unique=True, nullable=False)
     code_hash = db.Column(db.String(64), nullable=False)
-    pending_changes = db.Column(db.JSON, nullable=False)
+    pending_email = db.Column(db.String(320), nullable=True)
+    pending_name = db.Column(db.String(160), nullable=True)
+    pending_phone = db.Column(db.String(30), nullable=True)
+    pending_notifications_enabled = db.Column(db.Boolean, nullable=True)
+    pending_quote_notifications = db.Column(db.Boolean, nullable=True)
+    pending_response_notifications = db.Column(db.Boolean, nullable=True)
     expires_at = db.Column(db.DateTime(timezone=True), nullable=False)
     sent_at = db.Column(db.DateTime(timezone=True), nullable=False)
     attempts = db.Column(db.Integer, nullable=False, default=0)
@@ -125,13 +138,36 @@ class PasswordResetVerification(db.Model):
 class ProductListing(db.Model):
     id = db.Column(db.String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
     producer_id = db.Column(db.String(36), db.ForeignKey("user.id"), nullable=False, index=True)
-    data = db.Column(db.JSON, nullable=False)
+    name = db.Column(db.String(120), nullable=False)
+    variety = db.Column(db.String(120), nullable=False)
+    category = db.Column(db.String(60), nullable=False)
+    price_cop_kg = db.Column(db.Float, nullable=False)
+    price_usd_kg = db.Column(db.Float, nullable=False)
+    stock_available_kg = db.Column(db.Float, nullable=False)
+    stock_min_kg = db.Column(db.Float, nullable=False)
+    min_order_kg = db.Column(db.Float, nullable=False)
+    lat = db.Column(db.Float, nullable=False)
+    lng = db.Column(db.Float, nullable=False)
+    municipality_id = db.Column(db.String(80), nullable=False)
+    municipality_name = db.Column(db.String(100), nullable=False)
+    image = db.Column(db.Text, nullable=False, default="")
+    harvest_season = db.Column(db.String(120), nullable=False)
+    packaging = db.Column(db.String(120), nullable=False)
+    description = db.Column(db.String(2000), nullable=False, default="")
+    featured = db.Column(db.Boolean, nullable=False, default=False)
+    producer_experience_years = db.Column(db.Float, nullable=False, default=0)
     created_at = db.Column(db.DateTime(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc))
+    certifications = db.relationship(
+        "ProductCertification",
+        cascade="all, delete-orphan",
+        lazy="selectin",
+        order_by="ProductCertification.id",
+    )
 
     def to_public_dict(self):
         producer = db.session.get(User, self.producer_id)
         return {
-            **self.data,
+            **_product_public_fields(self),
             "id": self.id,
             "producerId": self.producer_id,
             "producerName": producer.name if producer else "Productor AgroCórdoba",
@@ -141,24 +177,138 @@ class ProductListing(db.Model):
         }
 
 
+class ProductCertification(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    product_id = db.Column(db.String(36), db.ForeignKey("product_listing.id"), nullable=False, index=True)
+    name = db.Column(db.String(100), nullable=False)
+    __table_args__ = (
+        db.UniqueConstraint("product_id", "name", name="uq_product_certification_name"),
+    )
+
+
 class QuotationRecord(db.Model):
     id = db.Column(db.String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
     client_id = db.Column(db.String(36), db.ForeignKey("user.id"), nullable=False, index=True)
     producer_id = db.Column(db.String(36), db.ForeignKey("user.id"), nullable=False, index=True)
     product_id = db.Column(db.String(36), nullable=False, index=True)
-    data = db.Column(db.JSON, nullable=False)
+    product_listing_id = db.Column(
+        db.String(36),
+        db.ForeignKey("product_listing.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
+    product_name = db.Column(db.String(120), nullable=False, default="")
+    product_variety = db.Column(db.String(120), nullable=False, default="")
+    producer_name = db.Column(db.String(160), nullable=False, default="")
+    producer_association = db.Column(db.String(200), nullable=False, default="")
+    producer_whatsapp = db.Column(db.String(30), nullable=False, default="")
+    client_name = db.Column(db.String(160), nullable=False, default="")
+    client_email = db.Column(db.String(320), nullable=False, default="")
+    client_phone = db.Column(db.String(30), nullable=False, default="")
+    client_business_type = db.Column(db.String(40), nullable=False, default="")
+    client_city = db.Column(db.String(100), nullable=False, default="")
+    quantity_kg = db.Column(db.Float, nullable=False, default=0)
+    destination_zone = db.Column(db.String(40), nullable=False, default="")
+    freight_cop = db.Column(db.Float, nullable=False, default=0)
+    subtotal_cop = db.Column(db.Float, nullable=False, default=0)
+    total_cop = db.Column(db.Float, nullable=False, default=0)
+    exchange_rate_cop = db.Column(db.Float, nullable=False, default=4150)
+    discount_percent = db.Column(db.Float, nullable=False, default=0)
+    notes = db.Column(db.String(1000), nullable=False, default="")
     status = db.Column(db.String(30), nullable=False, default="Pendiente")
     created_at = db.Column(db.DateTime(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc))
 
     def to_public_dict(self):
         return {
-            **self.data,
+            "productId": self.product_id,
+            "productName": self.product_name,
+            "productVariety": self.product_variety,
+            "producerName": self.producer_name,
+            "producerAssociation": self.producer_association,
+            "producerWhatsapp": self.producer_whatsapp,
+            "clientName": self.client_name,
+            "clientEmail": self.client_email,
+            "clientPhone": self.client_phone,
+            "clientBusinessType": self.client_business_type,
+            "clientCity": self.client_city,
+            "quantityKg": self.quantity_kg,
+            "destinationZone": self.destination_zone,
+            "freightCop": self.freight_cop,
+            "subtotalCop": self.subtotal_cop,
+            "totalCop": self.total_cop,
+            "totalUsd": self.total_cop / self.exchange_rate_cop if self.exchange_rate_cop else 0,
+            "discountPercent": self.discount_percent,
+            "notes": self.notes,
             "id": self.id,
             "clientId": self.client_id,
             "producerId": self.producer_id,
             "status": self.status,
             "createdAt": self.created_at.isoformat(),
         }
+
+
+def _product_public_fields(listing):
+    return {
+        "name": listing.name,
+        "variety": listing.variety,
+        "category": listing.category,
+        "priceCopKg": listing.price_cop_kg,
+        "priceUsdKg": listing.price_usd_kg,
+        "stockAvailableKg": listing.stock_available_kg,
+        "stockMinKg": listing.stock_min_kg,
+        "minOrderKg": listing.min_order_kg,
+        "lat": listing.lat,
+        "lng": listing.lng,
+        "municipalityId": listing.municipality_id,
+        "municipalityName": listing.municipality_name,
+        "image": listing.image,
+        "harvestSeason": listing.harvest_season,
+        "certifications": [item.name for item in listing.certifications],
+        "packaging": listing.packaging,
+        "description": listing.description,
+        "featured": listing.featured,
+        "producerExperienceYears": listing.producer_experience_years,
+    }
+
+
+def _apply_product_fields(listing, data):
+    field_map = {
+        "name": "name",
+        "variety": "variety",
+        "category": "category",
+        "priceCopKg": "price_cop_kg",
+        "priceUsdKg": "price_usd_kg",
+        "stockAvailableKg": "stock_available_kg",
+        "stockMinKg": "stock_min_kg",
+        "minOrderKg": "min_order_kg",
+        "lat": "lat",
+        "lng": "lng",
+        "municipalityId": "municipality_id",
+        "municipalityName": "municipality_name",
+        "image": "image",
+        "harvestSeason": "harvest_season",
+        "packaging": "packaging",
+        "description": "description",
+        "featured": "featured",
+        "producerExperienceYears": "producer_experience_years",
+    }
+    numeric_fields = {
+        "priceCopKg",
+        "priceUsdKg",
+        "stockAvailableKg",
+        "stockMinKg",
+        "minOrderKg",
+        "lat",
+        "lng",
+        "producerExperienceYears",
+    }
+    for source, destination in field_map.items():
+        default = 0 if source in numeric_fields else False if source == "featured" else ""
+        setattr(listing, destination, data.get(source, default))
+    listing.certifications[:] = [
+        ProductCertification(name=name)
+        for name in dict.fromkeys(data.get("certifications", []))
+    ]
 
 
 class Favorite(db.Model):
@@ -242,7 +392,8 @@ def create_product():
     data, error = _product_payload(request.get_json(silent=True))
     if error:
         return jsonify({"error": error}), 400
-    listing = ProductListing(producer_id=user.id, data=data)
+    listing = ProductListing(producer_id=user.id)
+    _apply_product_fields(listing, data)
     db.session.add(listing)
     db.session.commit()
     return jsonify({"product": listing.to_public_dict()}), 201
@@ -262,7 +413,8 @@ def admin_create_product():
     data, error = _product_payload(payload)
     if error:
         return jsonify({"error": error}), 400
-    listing = ProductListing(producer_id=producer.id, data=data)
+    listing = ProductListing(producer_id=producer.id)
+    _apply_product_fields(listing, data)
     db.session.add(listing)
     db.session.commit()
     return jsonify({"product": listing.to_public_dict()}), 201
@@ -285,7 +437,7 @@ def update_product(product_id):
     data, error = _product_payload(request.get_json(silent=True))
     if error:
         return jsonify({"error": error}), 400
-    listing.data = data
+    _apply_product_fields(listing, data)
     db.session.commit()
     return jsonify({"product": listing.to_public_dict()})
 
@@ -304,6 +456,10 @@ def delete_product(product_id):
         return jsonify({"error": "No tienes permiso para eliminar este producto."}), 403
     if user.role == "productor" and user.status != "activo":
         return jsonify({"error": "Tu cuenta no está aprobada para administrar publicaciones."}), 403
+    QuotationRecord.query.filter_by(product_listing_id=listing.id).update(
+        {QuotationRecord.product_listing_id: None},
+        synchronize_session=False,
+    )
     db.session.delete(listing)
     db.session.commit()
     return jsonify({"ok": True})
@@ -346,7 +502,7 @@ def create_quotation():
         freight = float(payload.get("freightCop", 0))
     except (TypeError, ValueError):
         return jsonify({"error": "La cantidad o el transporte no son válidos."}), 400
-    product = listing.data
+    product = listing.to_public_dict()
     if quantity < product["minOrderKg"] or quantity > product["stockAvailableKg"]:
         return jsonify({"error": "La cantidad debe respetar el pedido mínimo y el inventario disponible."}), 400
     if freight < 0 or freight > 100_000_000:
@@ -358,29 +514,30 @@ def create_quotation():
     discount = 10 if quantity >= 5000 else 7 if quantity >= 2000 else 4 if quantity >= 500 else 0
     subtotal = quantity * product["priceCopKg"] * (1 - discount / 100)
     total = subtotal + freight
-    data = {
-        "productId": listing.id,
-        "productName": product["name"].split()[0],
-        "productVariety": product["variety"],
-        "producerName": db.session.get(User, listing.producer_id).name,
-        "producerAssociation": db.session.get(User, listing.producer_id).association or "Independiente",
-        "producerWhatsapp": "".join(char for char in (db.session.get(User, listing.producer_id).phone or "") if char.isdigit()),
-        "clientName": user.name,
-        "clientEmail": user.email,
-        "clientPhone": user.phone,
-        "clientBusinessType": user.business_type,
-        "clientCity": user.city,
-        "quantityKg": quantity,
-        "destinationZone": destination,
-        "freightCop": freight,
-        "subtotalCop": subtotal,
-        "totalCop": total,
-        "totalUsd": total / 4150,
-        "discountPercent": discount,
-        "notes": str(payload.get("notes", "")).strip()[:1000],
-    }
+    producer = db.session.get(User, listing.producer_id)
     quotation = QuotationRecord(
-        client_id=user.id, producer_id=listing.producer_id, product_id=listing.id, data=data,
+        client_id=user.id,
+        producer_id=listing.producer_id,
+        product_id=listing.id,
+        product_listing_id=listing.id,
+        product_name=product["name"].split()[0],
+        product_variety=product["variety"],
+        producer_name=producer.name,
+        producer_association=producer.association or "Independiente",
+        producer_whatsapp="".join(char for char in (producer.phone or "") if char.isdigit()),
+        client_name=user.name,
+        client_email=user.email,
+        client_phone=user.phone,
+        client_business_type=user.business_type,
+        client_city=user.city,
+        quantity_kg=quantity,
+        destination_zone=destination,
+        freight_cop=freight,
+        subtotal_cop=subtotal,
+        total_cop=total,
+        exchange_rate_cop=4150,
+        discount_percent=discount,
+        notes=str(payload.get("notes", "")).strip()[:1000],
     )
     db.session.add(quotation)
     db.session.commit()
@@ -534,11 +691,18 @@ def admin_edit_user(user_id):
     if account.role == "productor":
         farm_name = str(payload.get("farmName", account.farm_name)).strip()
         association = str(payload.get("association", account.association)).strip()
-        products = payload.get("products", account.producer_products or [])
+        products = payload.get(
+            "products",
+            [item.name for item in ProducerProduct.query.filter_by(user_id=account.id).order_by(ProducerProduct.id).all()],
+        )
         if len(farm_name) > 160 or len(association) > 200 or not isinstance(products, list) or len(products) > 30 or any(not isinstance(item, str) or len(item) > 100 for item in products):
             return jsonify({"error": "Los datos de finca, asociación o productos no son válidos."}), 400
         account.farm_name, account.association = farm_name, association
-        account.producer_products = [item.strip() for item in products if item.strip()]
+        ProducerProduct.query.filter_by(user_id=account.id).delete()
+        db.session.add_all(
+            ProducerProduct(user_id=account.id, name=name)
+            for name in dict.fromkeys(item.strip() for item in products if item.strip())
+        )
     else:
         business_type = str(payload.get("businessType", account.business_type))
         if business_type not in {"Hogar", "Restaurante", "Distribuidor", "Importador"}:
@@ -625,7 +789,7 @@ def _validate_registration(payload):
         "business_type": business_type,
         "farm_name": farm_name,
         "association": association,
-        "producer_products": [item.strip()[:100] for item in products if item.strip()][:30],
+        "producer_products": list(dict.fromkeys(item.strip()[:100] for item in products if item.strip()))[:30],
     }, None, None
 
 
@@ -649,11 +813,15 @@ def register_local_user():
         business_type=payload["business_type"],
         farm_name=payload["farm_name"],
         association=payload["association"],
-        producer_products=payload["producer_products"],
         status="pendiente" if payload["role"] == "productor" else "activo",
     )
     db.session.add(user)
     try:
+        db.session.flush()
+        db.session.add_all(
+            ProducerProduct(user_id=user.id, name=product_name)
+            for product_name in payload["producer_products"]
+        )
         db.session.commit()
     except IntegrityError:
         db.session.rollback()
@@ -859,10 +1027,23 @@ def request_settings_code():
         challenge = SettingsVerification(user_id=user.id)
         db.session.add(challenge)
     challenge.code_hash = _code_hash(code)
-    challenge.pending_changes = changes
     challenge.sent_at = now
     challenge.expires_at = now + timedelta(minutes=10)
     challenge.attempts = 0
+    challenge.pending_email = changes.get("email")
+    challenge.pending_name = changes.get("name")
+    challenge.pending_phone = changes.get("phone")
+    prefs = changes.get("notifications")
+    challenge.pending_notifications_enabled = (
+        prefs["notificationsEnabled"] if prefs is not None else None
+    )
+    challenge.pending_quote_notifications = (
+        prefs["quoteNotifications"] if prefs is not None else None
+    )
+    challenge.pending_response_notifications = (
+        prefs["responseNotifications"] if prefs is not None else None
+    )
+    db.session.flush()
     db.session.commit()
     return jsonify({"ok": True, "email": user.email, "expiresInSeconds": 600})
 
@@ -874,7 +1055,7 @@ def get_account_settings():
         return jsonify({"error": "Inicia sesión para consultar tu configuración."}), 401
     settings = AccountSettings.query.filter_by(user_id=user.id).first()
     return jsonify({
-        "phone": user.phone or (settings.phone if settings else ""),
+        "phone": user.phone,
         "notifications": {
             "notificationsEnabled": settings.notifications_enabled if settings else True,
             "quoteNotifications": settings.quote_notifications if settings else True,
@@ -957,7 +1138,19 @@ def verify_settings_code():
         db.session.commit()
         return jsonify({"error": "El código no coincide."}), 400
 
-    changes = challenge.pending_changes
+    changes = {}
+    if challenge.pending_email is not None:
+        changes["email"] = challenge.pending_email
+    if challenge.pending_name is not None:
+        changes["name"] = challenge.pending_name
+    if challenge.pending_phone is not None:
+        changes["phone"] = challenge.pending_phone
+    if challenge.pending_notifications_enabled is not None:
+        changes["notifications"] = {
+            "notificationsEnabled": challenge.pending_notifications_enabled,
+            "quoteNotifications": challenge.pending_quote_notifications,
+            "responseNotifications": challenge.pending_response_notifications,
+        }
     if "email" in changes:
         duplicate = User.query.filter(User.email == changes["email"], User.id != user.id).first()
         if duplicate:
@@ -973,7 +1166,6 @@ def verify_settings_code():
         settings = AccountSettings(user_id=user.id)
         db.session.add(settings)
     if "phone" in changes:
-        settings.phone = changes["phone"]
         user.phone = changes["phone"]
     if "notifications" in changes:
         prefs = changes["notifications"]
@@ -995,7 +1187,10 @@ def verify_settings_code():
 
 
 def frontend_url(status):
-    base = os.environ.get("FRONTEND_URL", "http://localhost:3000/")
+    base = os.environ.get("FRONTEND_URL")
+    if not base:
+        render_url = os.environ.get("RENDER_EXTERNAL_URL", "").rstrip("/")
+        base = f"{render_url}/" if render_url else "http://localhost:3000/"
     return f"{base}?{urlencode({'google_login': status})}"
 
 
@@ -1004,9 +1199,14 @@ def google_login():
     if not os.environ.get("GOOGLE_CLIENT_ID") or not os.environ.get("GOOGLE_CLIENT_SECRET"):
         return redirect(frontend_url("setup"))
 
-    redirect_uri = os.environ.get(
-        "GOOGLE_REDIRECT_URI", "http://localhost:5000/auth/google/callback"
-    )
+    redirect_uri = os.environ.get("GOOGLE_REDIRECT_URI")
+    if not redirect_uri:
+        render_url = os.environ.get("RENDER_EXTERNAL_URL", "").rstrip("/")
+        redirect_uri = (
+            f"{render_url}/auth/google/callback"
+            if render_url
+            else "http://localhost:5000/auth/google/callback"
+        )
     return google.authorize_redirect(redirect_uri)
 
 
@@ -1227,7 +1427,7 @@ def frontend_sitemap():
     )
     locations = [f"{base_url}/"]
     locations.extend(
-        f"{base_url}/producto/{_product_slug(listing.data['name'])}/{quote(listing.id, safe='')}"
+        f"{base_url}/producto/{_product_slug(listing.name)}/{quote(listing.id, safe='')}"
         for listing in listings
     )
     sitemap = (
@@ -1270,19 +1470,265 @@ def _migrate_user_columns():
         "phone": "VARCHAR(30) NOT NULL DEFAULT ''",
         "farm_name": "VARCHAR(160) NOT NULL DEFAULT ''",
         "association": "VARCHAR(200) NOT NULL DEFAULT ''",
-        "producer_products": "JSON NULL",
         "status": "VARCHAR(20) NOT NULL DEFAULT 'activo'",
     }
     for name, sql_type in additions.items():
         if name not in columns:
             db.session.execute(text(f'ALTER TABLE "user" ADD COLUMN {name} {sql_type}'))
-    db.session.execute(text('UPDATE "user" SET producer_products = \'[]\' WHERE producer_products IS NULL'))
     db.session.commit()
+
+
+def _ensure_columns(table_name, additions):
+    columns = {column["name"] for column in inspect(db.engine).get_columns(table_name)}
+    for name, sql_type in additions.items():
+        if name not in columns:
+            db.session.execute(
+                text(f'ALTER TABLE "{table_name}" ADD COLUMN "{name}" {sql_type}')
+            )
+
+
+def _drop_legacy_column(table_name, column_name):
+    columns = {column["name"] for column in inspect(db.engine).get_columns(table_name)}
+    if column_name in columns:
+        db.session.execute(
+            text(f'ALTER TABLE "{table_name}" DROP COLUMN "{column_name}"')
+        )
+        db.session.commit()
+
+
+def _decode_legacy_object(value, table_name, row_id):
+    if isinstance(value, str):
+        value = json.loads(value)
+    if not isinstance(value, dict):
+        raise RuntimeError(
+            f"Cannot migrate {table_name} row {row_id}: expected a JSON object."
+        )
+    return value
+
+
+def _migrate_normalized_tables():
+    """Moves legacy JSON and duplicate phone fields into relational columns."""
+    user_columns = {column["name"] for column in inspect(db.engine).get_columns("user")}
+    if "producer_products" in user_columns:
+        rows = db.session.execute(
+            text('SELECT id, producer_products FROM "user"')
+        ).all()
+        existing = {
+            (row.user_id, row.name)
+            for row in ProducerProduct.query.with_entities(
+                ProducerProduct.user_id,
+                ProducerProduct.name,
+            ).all()
+        }
+        for row in rows:
+            values = row.producer_products
+            if isinstance(values, str):
+                values = json.loads(values)
+            if values is None:
+                values = []
+            if not isinstance(values, list) or any(not isinstance(item, str) for item in values):
+                raise RuntimeError(
+                    f"Cannot migrate producer products for user {row.id}: expected a string list."
+                )
+            for name in dict.fromkeys(item.strip() for item in values if item.strip()):
+                if (row.id, name) not in existing:
+                    db.session.add(ProducerProduct(user_id=row.id, name=name[:100]))
+                    existing.add((row.id, name))
+        db.session.commit()
+        _drop_legacy_column("user", "producer_products")
+
+    _ensure_columns(
+        "product_listing",
+        {
+            "name": "VARCHAR(120) NOT NULL DEFAULT ''",
+            "variety": "VARCHAR(120) NOT NULL DEFAULT ''",
+            "category": "VARCHAR(60) NOT NULL DEFAULT ''",
+            "price_cop_kg": "FLOAT NOT NULL DEFAULT 0",
+            "price_usd_kg": "FLOAT NOT NULL DEFAULT 0",
+            "stock_available_kg": "FLOAT NOT NULL DEFAULT 0",
+            "stock_min_kg": "FLOAT NOT NULL DEFAULT 0",
+            "min_order_kg": "FLOAT NOT NULL DEFAULT 0",
+            "lat": "FLOAT NOT NULL DEFAULT 0",
+            "lng": "FLOAT NOT NULL DEFAULT 0",
+            "municipality_id": "VARCHAR(80) NOT NULL DEFAULT ''",
+            "municipality_name": "VARCHAR(100) NOT NULL DEFAULT ''",
+            "image": "TEXT NOT NULL DEFAULT ''",
+            "harvest_season": "VARCHAR(120) NOT NULL DEFAULT ''",
+            "packaging": "VARCHAR(120) NOT NULL DEFAULT ''",
+            "description": "VARCHAR(2000) NOT NULL DEFAULT ''",
+            "featured": "BOOLEAN NOT NULL DEFAULT FALSE",
+            "producer_experience_years": "FLOAT NOT NULL DEFAULT 0",
+        },
+    )
+    product_columns = {
+        column["name"] for column in inspect(db.engine).get_columns("product_listing")
+    }
+    if "data" in product_columns:
+        rows = db.session.execute(
+            text("SELECT id, data FROM product_listing")
+        ).all()
+        for row in rows:
+            data = _decode_legacy_object(row.data, "product_listing", row.id)
+            listing = db.session.get(ProductListing, row.id)
+            if listing is None:
+                raise RuntimeError(f"Cannot migrate missing product listing {row.id}.")
+            _apply_product_fields(listing, data)
+        db.session.commit()
+        _drop_legacy_column("product_listing", "data")
+
+    quotation_additions = {
+        "product_listing_id": "VARCHAR(36) NULL REFERENCES product_listing(id) ON DELETE SET NULL",
+        "product_name": "VARCHAR(120) NOT NULL DEFAULT ''",
+        "product_variety": "VARCHAR(120) NOT NULL DEFAULT ''",
+        "producer_name": "VARCHAR(160) NOT NULL DEFAULT ''",
+        "producer_association": "VARCHAR(200) NOT NULL DEFAULT ''",
+        "producer_whatsapp": "VARCHAR(30) NOT NULL DEFAULT ''",
+        "client_name": "VARCHAR(160) NOT NULL DEFAULT ''",
+        "client_email": "VARCHAR(320) NOT NULL DEFAULT ''",
+        "client_phone": "VARCHAR(30) NOT NULL DEFAULT ''",
+        "client_business_type": "VARCHAR(40) NOT NULL DEFAULT ''",
+        "client_city": "VARCHAR(100) NOT NULL DEFAULT ''",
+        "quantity_kg": "FLOAT NOT NULL DEFAULT 0",
+        "destination_zone": "VARCHAR(40) NOT NULL DEFAULT ''",
+        "freight_cop": "FLOAT NOT NULL DEFAULT 0",
+        "subtotal_cop": "FLOAT NOT NULL DEFAULT 0",
+        "total_cop": "FLOAT NOT NULL DEFAULT 0",
+        "exchange_rate_cop": "FLOAT NOT NULL DEFAULT 4150",
+        "discount_percent": "FLOAT NOT NULL DEFAULT 0",
+        "notes": "VARCHAR(1000) NOT NULL DEFAULT ''",
+    }
+    _ensure_columns("quotation_record", quotation_additions)
+    quotation_columns = {
+        column["name"] for column in inspect(db.engine).get_columns("quotation_record")
+    }
+    if "data" in quotation_columns:
+        rows = db.session.execute(
+            text("SELECT id, product_id, data FROM quotation_record")
+        ).all()
+        field_map = {
+            "productName": "product_name",
+            "productVariety": "product_variety",
+            "producerName": "producer_name",
+            "producerAssociation": "producer_association",
+            "producerWhatsapp": "producer_whatsapp",
+            "clientName": "client_name",
+            "clientEmail": "client_email",
+            "clientPhone": "client_phone",
+            "clientBusinessType": "client_business_type",
+            "clientCity": "client_city",
+            "quantityKg": "quantity_kg",
+            "destinationZone": "destination_zone",
+            "freightCop": "freight_cop",
+            "subtotalCop": "subtotal_cop",
+            "totalCop": "total_cop",
+            "discountPercent": "discount_percent",
+            "notes": "notes",
+        }
+        for row in rows:
+            data = _decode_legacy_object(row.data, "quotation_record", row.id)
+            values = {
+                destination: data.get(source, 0 if destination in {
+                    "quantity_kg",
+                    "freight_cop",
+                    "subtotal_cop",
+                    "total_cop",
+                    "discount_percent",
+                } else "")
+                for source, destination in field_map.items()
+            }
+            total_usd = float(data.get("totalUsd", 0) or 0)
+            values["exchange_rate_cop"] = (
+                float(values["total_cop"]) / total_usd
+                if total_usd > 0
+                else 4150
+            )
+            product = db.session.get(ProductListing, row.product_id)
+            values["product_listing_id"] = product.id if product else None
+            assignments = ", ".join(f'"{name}" = :{name}' for name in values)
+            db.session.execute(
+                text(
+                    f'UPDATE quotation_record SET {assignments} WHERE id = :row_id'
+                ),
+                {**values, "row_id": row.id},
+            )
+        db.session.commit()
+        _drop_legacy_column("quotation_record", "data")
+
+    _ensure_columns(
+        "settings_verification",
+        {
+            "pending_email": "VARCHAR(320) NULL",
+            "pending_name": "VARCHAR(160) NULL",
+            "pending_phone": "VARCHAR(30) NULL",
+            "pending_notifications_enabled": "BOOLEAN NULL",
+            "pending_quote_notifications": "BOOLEAN NULL",
+            "pending_response_notifications": "BOOLEAN NULL",
+        },
+    )
+    verification_columns = {
+        column["name"] for column in inspect(db.engine).get_columns("settings_verification")
+    }
+    if "pending_changes" in verification_columns:
+        rows = db.session.execute(
+            text("SELECT id, pending_changes FROM settings_verification")
+        ).all()
+        for row in rows:
+            changes = _decode_legacy_object(
+                row.pending_changes,
+                "settings_verification",
+                row.id,
+            )
+            values = {}
+            field_map = {
+                "email": "pending_email",
+                "name": "pending_name",
+                "phone": "pending_phone",
+            }
+            for source, destination in field_map.items():
+                if source in changes:
+                    values[destination] = changes[source]
+            for field_name, value in changes.items():
+                if field_name == "notifications":
+                    values.update({
+                        "pending_notifications_enabled": value["notificationsEnabled"],
+                        "pending_quote_notifications": value["quoteNotifications"],
+                        "pending_response_notifications": value["responseNotifications"],
+                    })
+            if values:
+                assignments = ", ".join(f'"{name}" = :{name}' for name in values)
+                db.session.execute(
+                    text(
+                        f'UPDATE settings_verification SET {assignments} WHERE id = :row_id'
+                    ),
+                    {**values, "row_id": row.id},
+                )
+        db.session.commit()
+        _drop_legacy_column("settings_verification", "pending_changes")
+
+    account_settings_columns = {
+        column["name"] for column in inspect(db.engine).get_columns("account_settings")
+    }
+    if "phone" in account_settings_columns:
+        rows = db.session.execute(
+            text(
+                "SELECT account_settings.user_id, account_settings.phone "
+                "FROM account_settings JOIN user ON user.id = account_settings.user_id "
+                'WHERE user.phone = \'\' AND account_settings.phone <> \'\''
+            )
+        ).all()
+        for row in rows:
+            db.session.execute(
+                text('UPDATE "user" SET phone = :phone WHERE id = :user_id'),
+                {"phone": row.phone, "user_id": row.user_id},
+            )
+        db.session.commit()
+        _drop_legacy_column("account_settings", "phone")
 
 
 with app.app_context():
     db.create_all()
     _migrate_user_columns()
+    _migrate_normalized_tables()
     admin_email = os.environ.get("ADMIN_EMAIL", "").strip().lower()
     admin_password = os.environ.get("ADMIN_PASSWORD", "")
     if bool(admin_email) != bool(admin_password):
