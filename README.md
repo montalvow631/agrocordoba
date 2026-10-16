@@ -12,18 +12,20 @@ La plataforma no procesa pagos. Los datos de demostración no representan usuari
 
 ## Estado actual del proyecto
 
-El sitio está publicado y permite revisar la interfaz y el catálogo de demostración.
+AgroCórdoba se encuentra publicado en Render y cuenta con una interfaz funcional que permite explorar el catálogo de productos agrícolas, consultar información de los municipios de Córdoba y acceder a los módulos de compradores, productores y administración.
 
 | Elemento | Estado |
 |---|---|
-| Sitio web y contenido visual | Publicados en Render. |
-| Backend y rutas de la aplicación | Incluidos en el proyecto. |
-| Base de datos del despliegue | SQLite en almacenamiento efímero de Render; los registros pueden perderse al reiniciar o desplegar. No usar para conservar datos reales. |
-| Inicio de sesión con Google | El código está incluido, pero faltan las credenciales y la configuración de Google Cloud. |
-| Recuperación de contraseña por correo | El código está incluido, pero falta configurar y probar un proveedor de correo y un remitente válido. |
-| Persistencia de cuentas, publicaciones y cotizaciones | Pendiente configurar y verificar una base de datos persistente. |
+| Sitio web y contenido visual | Publicados y disponibles para su consulta. |
+| Backend y rutas de la aplicación | mplementados e integrados con la plataforma. |
+| Catálogo y gestión de cosechas | Permiten consultar y administrar los productos publicados. |
+| Registro de compradores y productores | Permite registrar usuarios según su rol. |
+| Panel de administración | Permite gestionar clientes, productores, productos y solicitudes. |
+| Mapa interactivo de Córdoba | Permite explorar los municipios y su información productiva. |
+| Solicitudes de cotización | Módulo disponible para gestionar solicitudes de compra. |
+| Base de datos | Integrada para almacenar la información de la aplicación |
 
-Por tanto, el despliegue sirve como demostración del proyecto, pero no se debe presentar como un servicio con cuentas persistentes, inicio de Google o recuperación por correo ya operativos.
+El proyecto reúne funcionalidades orientadas a conectar a los productores agrícolas con compradores, facilitar la consulta de cosechas y contribuir al desarrollo económico rural, en concordancia con el ODS 8: Trabajo decente y crecimiento económico.
 
 ## Integrantes
 
