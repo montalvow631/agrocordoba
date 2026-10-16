@@ -12,7 +12,7 @@ La plataforma no procesa pagos. Los datos de demostración no representan usuari
 
 ## Estado actual del proyecto
 
-El sitio está publicado y permite revisar la interfaz y el catálogo de demostración. Esto no significa que todas las funciones de producción estén configuradas:
+El sitio está publicado y permite revisar la interfaz y el catálogo de demostración.
 
 | Elemento | Estado |
 |---|---|
