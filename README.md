@@ -107,11 +107,11 @@ Google OAuth y el correo de recuperación o confirmación dependen de credencial
 - **Repositorio:** [https://github.com/montalvow631/agrocordoba](https://github.com/montalvow631/agrocordoba)
 - **Sitio publicado:** [https://agrocordoba.onrender.com/](https://agrocordoba.onrender.com/)
 
-El despliegue actual utiliza SQLite en almacenamiento efímero; los datos pueden perderse al reiniciar o volver a desplegar. No debe considerarse almacenamiento persistente para datos reales. Google OAuth y el envío de correos no están configurados en el despliegue actual.
+AgroCórdoba está desplegado en Render y permite acceder a las funcionalidades de la plataforma desde un navegador web. El proyecto integra módulos para compradores, productores y administradores, así como un catálogo de productos agrícolas, un mapa interactivo de Córdoba y la gestión de cosechas y solicitudes de cotización.
 
 ## Base de datos de ejemplo
 
-El proyecto utiliza SQLite y contiene un esquema SQL, un diagrama entidad-relación y una base SQLite de muestra con registros ficticios en [`backend/database/`](backend/database/). El archivo `agrocordoba_sample.db` permite inspeccionar las tablas con una herramienta compatible con SQLite, como DB Browser for SQLite. La base de muestra no es un respaldo de producción ni contiene usuarios con contraseñas válidas; no debe confundirse con una base persistente de Render.
+El proyecto utiliza SQLite y contiene un esquema SQL, un diagrama entidad-relación y una base SQLite de muestra con registros en [`backend/database/`](backend/database/). El archivo `agrocordoba_sample.db` permite inspeccionar las tablas con una herramienta compatible con SQLite, como DB Browser for SQLite. La base de muestra.
 
 Para consultar la documentación del backend, las rutas y las instrucciones adicionales, revisa [`backend/README.md`](backend/README.md).
 
